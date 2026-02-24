@@ -6,55 +6,115 @@
     <title>PC Remote Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        body { cursor: none; } /* Hide default cursor to use custom one */
+        
         .screenshot-container {
-            cursor: crosshair;
+            cursor: none;
             position: relative;
             display: inline-block;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
+
+        /* Custom Virtual Cursor */
+        #virtual-cursor {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            border: 2px solid white;
+            background: rgba(59, 130, 246, 0.5); /* Blue tint */
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 100;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s ease-out;
+        }
+        
+        #virtual-cursor::after {
+            content: '';
+            width: 4px;
+            height: 4px;
+            background: white;
+            border-radius: 50%;
+        }
+
         #dot {
             position: absolute;
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             background: red;
+            border: 2px solid white;
             border-radius: 50%;
             display: none;
             pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            box-shadow: 0 0 10px red;
+        }
+
+        .loader {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 30;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white font-sans p-4">
-    <div class="max-w-5xl mx-auto">
-        <header class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-blue-400">💻 PC Dashboard</h1>
-            <div class="space-x-2">
-                <button onclick="refreshImage()" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">🔄 Refresh</button>
-            </div>
-        </header>
+<body class="bg-gray-950 text-white p-4">
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <!-- Sidebar Controls -->
-            <div class="md:col-span-1 space-y-4">
-                <div class="bg-gray-800 p-4 rounded-lg">
-                    <h2 class="font-bold mb-2 border-b border-gray-700 pb-1">Commands</h2>
-                    <input id="typeInput" type="text" placeholder="Type something..." class="w-full bg-gray-700 p-2 rounded mb-2 text-sm outline-none border border-gray-600 focus:border-blue-500">
-                    <button onclick="sendType()" class="w-full bg-green-600 py-2 rounded text-sm hover:bg-green-700">⌨️ Send Text</button>
-                </div>
-                
-                <div class="bg-gray-800 p-4 rounded-lg">
-                    <h2 class="font-bold mb-2 border-b border-gray-700 pb-1">Info</h2>
-                    <p class="text-xs text-gray-400">Image par click karein PC par click karne ke liye.</p>
-                    <div id="coords" class="mt-2 text-blue-300 text-sm">X: 0, Y: 0</div>
-                </div>
-            </div>
+    <!-- Custom Cursor Element -->
+    <div id="virtual-cursor"></div>
 
-            <!-- Main Screen -->
-            <div class="md:col-span-3">
-                <div class="bg-gray-800 p-2 rounded-lg text-center overflow-auto">
-                    <div class="screenshot-container" id="container">
-                        <!-- Yahan apna GitHub screenshot URL dalein -->
-                        <img id="screenshot" src="screenshot.png" alt="Loading PC Screen..." class="max-w-full h-auto rounded shadow-2xl border border-gray-700">
-                        <div id="dot"></div>
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-black text-blue-500 tracking-tighter italic">REMOTE ENGINE v2.0</h1>
+            <div class="flex items-center gap-4">
+                <span id="sync-time" class="text-xs text-gray-500 font-mono">Not synced</span>
+                <button onclick="refreshImage()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full font-bold text-sm transition-all transform active:scale-95 shadow-lg shadow-blue-900/20">
+                    🔄 REFRESH VIEW
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- Main Display -->
+            <div class="flex-grow text-center">
+                <div class="screenshot-container" id="container">
+                    <div id="loader" class="loader">
+                        <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500"></div>
                     </div>
+                    <!-- Using Raw URL for zero cache delay -->
+                    <img id="screenshot" src="https://raw.githubusercontent.com/blockchainverifying/asset/main/screenshot.png" 
+                         alt="PC Screen" class="max-w-full h-auto opacity-0 transition-opacity duration-700">
+                    <div id="dot"></div>
+                </div>
+            </div>
+
+            <!-- Controls Sidebar -->
+            <div class="w-full lg:w-80 space-y-4">
+                <div class="bg-gray-900 border border-gray-800 p-5 rounded-2xl shadow-xl">
+                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Precision Control</h2>
+                    <div id="coords" class="text-3xl font-mono text-blue-400 mb-2">X: 0 | Y: 0</div>
+                    <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden">
+                        <div id="progress" class="h-full bg-blue-500 w-0 transition-all duration-300"></div>
+                    </div>
+                    <p class="text-[10px] text-gray-600 mt-3 italic">Click anywhere on the image to simulate a physical mouse click on the remote machine.</p>
+                </div>
+
+                <div class="bg-gray-900 border border-gray-800 p-5 rounded-2xl shadow-xl">
+                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Remote Keyboard</h2>
+                    <input id="typeInput" type="text" placeholder="Type message..." 
+                           class="w-full bg-black border border-gray-800 p-3 rounded-lg text-sm mb-3 focus:border-blue-500 outline-none transition-colors">
+                    <button onclick="sendType()" class="w-full bg-gray-100 text-black font-black py-3 rounded-lg hover:bg-white transition-all active:scale-95">
+                        SEND KEYSTROKES
+                    </button>
                 </div>
             </div>
         </div>
@@ -64,58 +124,85 @@
         const BOT_TOKEN = "8235734619:AAEVmjaTSbPBvzKZJuyCOgxXvOb_m5ILWxo";
         const CHAT_ID = "8060968649";
         const img = document.getElementById('screenshot');
+        const loader = document.getElementById('loader');
+        const vCursor = document.getElementById('virtual-cursor');
         const container = document.getElementById('container');
-        const dot = document.getElementById('dot');
 
-        // Automatic image refresh every 30 seconds
-        setInterval(refreshImage, 30000);
+        // Virtual Cursor Movement Logic
+        document.addEventListener('mousemove', (e) => {
+            vCursor.style.left = e.clientX + 'px';
+            vCursor.style.top = e.clientY + 'px';
+            
+            // Interaction effect when hovering the screen
+            const rect = container.getBoundingClientRect();
+            if (e.clientX >= rect.left && e.clientX <= rect.right && 
+                e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                vCursor.style.borderColor = '#3b82f6';
+                vCursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+            } else {
+                vCursor.style.borderColor = 'white';
+                vCursor.style.transform = 'translate(-50%, -50%) scale(1)';
+            }
+        });
 
         function refreshImage() {
-            img.src = "screenshot.png?t=" + new Date().getTime();
+            loader.style.display = 'block';
+            const cacheBypass = new Date().getTime();
+            img.src = `https://raw.githubusercontent.com/blockchainverifying/asset/main/screenshot.png?v=${cacheBypass}`;
+            document.getElementById('progress').style.width = '100%';
+            setTimeout(() => { document.getElementById('progress').style.width = '0%'; }, 500);
         }
 
-        container.addEventListener('click', function(e) {
+        img.onload = () => { 
+            loader.style.display = 'none'; 
+            img.classList.remove('opacity-0');
+            document.getElementById('sync-time').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+        };
+
+        container.addEventListener('mousedown', function(e) {
             const rect = img.getBoundingClientRect();
-            
-            // Mouse position relative to image
             const x_pixel = e.clientX - rect.left;
             const y_pixel = e.clientY - rect.top;
 
-            // Mapping to standard PC Resolution (Yahan apna PC resolution dalein agar galat click ho)
-            // Default 1920x1080 assume kar rahe hain, python code se width/height le sakte hain
+            // Change this to your PC's actual Resolution
             const pc_width = 1920; 
             const pc_height = 1080;
 
             const final_x = Math.round((x_pixel / rect.width) * pc_width);
             const final_y = Math.round((y_pixel / rect.height) * pc_height);
 
-            document.getElementById('coords').innerText = `X: ${final_x}, Y: ${final_y}`;
-
-            // Visual Dot
+            document.getElementById('coords').innerText = `X: ${final_x} | Y: ${final_y}`;
+            
+            const dot = document.getElementById('dot');
             dot.style.display = 'block';
             dot.style.left = x_pixel + 'px';
             dot.style.top = y_pixel + 'px';
 
-            // Send to Telegram
+            // Visual feedback on virtual cursor
+            vCursor.style.background = 'rgba(239, 68, 68, 0.8)'; // Red flash
+            setTimeout(() => { vCursor.style.background = 'rgba(59, 130, 246, 0.5)'; }, 200);
+
             sendCommand(`/click ${final_x} ${final_y}`);
         });
 
         function sendType() {
-            const text = document.getElementById('typeInput').value;
-            if(text) {
-                sendCommand(`/type ${text}`);
-                document.getElementById('typeInput').value = '';
+            const input = document.getElementById('typeInput');
+            if(input.value) {
+                sendCommand(`/type ${input.value}`);
+                input.value = '';
             }
         }
 
         function sendCommand(cmd) {
             fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(cmd)}`)
-            .then(res => {
-                console.log("Command Sent");
-                // Click ke baad 2 sec baad refresh
-                setTimeout(refreshImage, 2000);
+            .then(() => {
+                setTimeout(refreshImage, 2500); // Wait for PC to process and upload
             });
         }
+
+        // Auto Refresh
+        setInterval(refreshImage, 15000);
+        refreshImage();
     </script>
 </body>
 </html>
