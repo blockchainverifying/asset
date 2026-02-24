@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudStream Remote Control</title>
+    <title>CloudStream Remote Control & Keyboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .live-indicator { animation: pulse 2s infinite; }
@@ -13,21 +13,24 @@
             pointer-events: none;
             z-index: 50;
         }
+        .key-btn {
+            @apply bg-slate-700 hover:bg-slate-600 active:bg-slate-500 px-4 py-2 rounded text-xs font-bold transition-colors uppercase tracking-widest border border-slate-600;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen font-sans overflow-hidden">
 
     <div class="h-screen flex flex-col">
         <!-- Header -->
-        <header class="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+        <header class="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
             <div class="flex items-center gap-3">
                 <div class="bg-red-600 p-2 rounded-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/></svg>
                 </div>
-                <h1 class="font-bold text-lg">Remote Desktop Control</h1>
+                <h1 class="font-bold text-lg">Remote Control + Keyboard</h1>
             </div>
             <div class="flex gap-4 items-center">
-                <span id="auth-status" class="text-xs text-slate-400">Connecting...</span>
+                <span id="auth-status" class="text-xs text-slate-400 italic">Connecting...</span>
                 <div class="bg-slate-700 px-3 py-1 rounded-full text-xs flex items-center gap-2">
                     <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
                     <span id="status-text">Offline</span>
@@ -35,12 +38,12 @@
             </div>
         </header>
 
-        <!-- Stream Window -->
-        <main class="flex-1 relative bg-black flex items-center justify-center p-4">
+        <!-- Main Stream Area -->
+        <main class="flex-1 relative bg-black flex items-center justify-center p-2 overflow-hidden">
             <div id="screen-container" class="relative max-w-full max-h-full cursor-crosshair group shadow-2xl border border-slate-800">
                 <img id="stream-img" src="" class="hidden max-w-full max-h-full block" draggable="false">
                 
-                <!-- Remote User's Cursor Overlay -->
+                <!-- Remote Cursor Overlay -->
                 <div id="remote-cursor" class="absolute w-5 h-5 hidden">
                     <svg viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="1">
                         <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
@@ -51,14 +54,33 @@
                 <div id="loader" class="absolute inset-0 flex items-center justify-center bg-slate-900">
                     <div class="text-center">
                         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-                        <p class="text-slate-400">Waiting for Stream...</p>
+                        <p class="text-slate-400">Connecting to Remote...</p>
                     </div>
                 </div>
             </div>
         </main>
 
-        <footer class="p-2 bg-slate-800 text-[10px] text-center text-slate-500 uppercase tracking-widest">
-            Click anywhere on the screen to control remote PC
+        <!-- Keyboard Controls Section -->
+        <section class="bg-slate-800 border-t border-slate-700 p-4 shrink-0">
+            <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-4 items-center">
+                <!-- Text Input -->
+                <div class="flex-1 w-full relative">
+                    <input type="text" id="keyboard-input" placeholder="Yaha type karke enter dabaye..." 
+                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500 transition-all">
+                    <button id="send-btn" class="absolute right-2 top-1.5 bg-blue-600 hover:bg-blue-500 px-3 py-0.5 rounded text-[10px] font-bold">SEND</button>
+                </div>
+
+                <!-- Special Buttons -->
+                <div class="flex gap-2 shrink-0">
+                    <button class="key-btn" onclick="sendSpecialKey('enter')">Enter</button>
+                    <button class="key-btn" onclick="sendSpecialKey('space')">Space</button>
+                    <button class="key-btn" onclick="sendSpecialKey('backspace')">Back</button>
+                </div>
+            </div>
+        </section>
+
+        <footer class="p-1 bg-slate-900 text-[10px] text-center text-slate-600 uppercase tracking-widest shrink-0">
+            Control: Click to move/click • Input: Type above or use special keys
         </footer>
     </div>
 
@@ -67,7 +89,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Configuration matching your sainfoxiya-com-a7733 project
         const firebaseConfig = {
             apiKey: "AIzaSyDYbGLAXKaY9uVyNPDCS-bvxsQvPWiLouk",
             authDomain: "sainfoxiya-com-a7733.firebaseapp.com",
@@ -87,80 +108,91 @@
         const remoteCursor = document.getElementById('remote-cursor');
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
+        const keyboardInput = document.getElementById('keyboard-input');
+        const sendBtn = document.getElementById('send-btn');
 
         // 1. Authenticate
         signInAnonymously(auth).then(() => {
-            document.getElementById('auth-status').innerText = "Connected";
-        }).catch(err => {
-            document.getElementById('auth-status').innerText = "Auth Error";
-            console.error(err);
+            document.getElementById('auth-status').innerText = "Session Active";
         });
 
         onAuthStateChanged(auth, (user) => {
             if (user) startControl();
         });
 
-        // 2. Click Handling (Sends relative coordinates to Python)
-        screenContainer.addEventListener('click', async (e) => {
-            if (statusText.innerText !== 'LIVE') return;
-
-            const rect = screenContainer.getBoundingClientRect();
-            // Calculate relative position (0 to 1)
-            const relX = (e.clientX - rect.left) / rect.width;
-            const relY = (e.clientY - rect.top) / rect.height;
-
+        // Helper: Firestore mein action add karna
+        async function sendAction(data) {
             try {
-                // Add click event to Firestore collection watched by contro.py
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clicks'), {
-                    relX: relX,
-                    relY: relY,
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
+                    ...data,
                     timestamp: serverTimestamp(),
                     processed: false
                 });
-                
-                // Visual ripple feedback
-                const ripple = document.createElement('div');
-                ripple.className = 'absolute w-6 h-6 border-2 border-white/50 rounded-full animate-ping pointer-events-none';
-                ripple.style.left = `calc(${(relX * 100)}% - 12px)`;
-                ripple.style.top = `calc(${(relY * 100)}% - 12px)`;
-                screenContainer.appendChild(ripple);
-                setTimeout(() => ripple.remove(), 600);
-
             } catch (err) {
-                console.error("Click delivery failed:", err);
+                console.error("Action failed:", err);
             }
+        }
+
+        // Mouse Click Handler
+        screenContainer.addEventListener('click', (e) => {
+            if (statusText.innerText !== 'LIVE') return;
+            const rect = screenContainer.getBoundingClientRect();
+            const relX = (e.clientX - rect.left) / rect.width;
+            const relY = (e.clientY - rect.top) / rect.height;
+
+            sendAction({ type: 'click', relX, relY });
+
+            // Visual feedback
+            const ripple = document.createElement('div');
+            ripple.className = 'absolute w-6 h-6 border-2 border-white/50 rounded-full animate-ping pointer-events-none';
+            ripple.style.left = `calc(${(relX * 100)}% - 12px)`;
+            ripple.style.top = `calc(${(relY * 100)}% - 12px)`;
+            screenContainer.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
         });
 
-        // 3. Sync Stream and Cursor
+        // Keyboard Logic
+        keyboardInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') processInput();
+        });
+
+        sendBtn.addEventListener('click', processInput);
+
+        function processInput() {
+            const val = keyboardInput.value;
+            if (!val) return;
+            sendAction({ type: 'text', value: val });
+            keyboardInput.value = '';
+            keyboardInput.focus();
+        }
+
+        // Exposed global for onclick buttons
+        window.sendSpecialKey = (key) => {
+            sendAction({ type: 'special_key', value: key });
+        };
+
+        // 3. Sync Stream
         function startControl() {
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen');
-
             onSnapshot(docRef, (snap) => {
                 if (snap.exists()) {
                     const data = snap.data();
-                    
-                    // Update main image frame
                     if (data.frame) {
                         streamImg.src = data.frame;
                         streamImg.classList.remove('hidden');
                         loader.classList.add('hidden');
                     }
-                    
-                    // Update Remote Cursor overlay
                     if (data.cursorX !== undefined) {
                         remoteCursor.style.left = (data.cursorX * 100) + '%';
                         remoteCursor.style.top = (data.cursorY * 100) + '%';
                         remoteCursor.classList.remove('hidden');
                     }
-
                     statusDot.className = 'w-2 h-2 rounded-full bg-green-500 live-indicator';
                     statusText.innerText = 'LIVE';
                 }
-            }, (error) => {
-                console.error("Stream sync error:", error);
-                statusText.innerText = 'Sync Error';
             });
         }
     </script>
 </body>
 </html>
+
