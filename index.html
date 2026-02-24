@@ -3,98 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudStream Remote Control & Keyboard</title>
+    <title>Remote Control & Clipboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .live-indicator { animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-        #remote-cursor {
-            transition: all 0.1s ease-out;
-            pointer-events: none;
-            z-index: 50;
-        }
-        .key-btn {
-            @apply bg-slate-700 hover:bg-slate-600 active:bg-slate-500 px-4 py-2 rounded text-xs font-bold transition-colors uppercase tracking-widest border border-slate-600;
-        }
+        #remote-cursor { transition: all 0.1s ease-out; pointer-events: none; z-index: 50; }
+        .key-btn { @apply bg-slate-700 hover:bg-slate-600 active:bg-slate-500 px-4 py-2 rounded text-xs font-bold border border-slate-600 shadow-sm transition-all; }
+        .clipboard-item { @apply bg-slate-800 p-2 rounded text-[11px] border-l-2 border-blue-500 break-all relative group animate-in fade-in slide-in-from-right-2 duration-300; }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen font-sans overflow-hidden">
+<body class="bg-slate-900 text-white min-h-screen flex flex-col overflow-hidden">
 
-    <div class="h-screen flex flex-col">
-        <!-- Header -->
-        <header class="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
-            <div class="flex items-center gap-3">
-                <div class="bg-red-600 p-2 rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/></svg>
-                </div>
-                <h1 class="font-bold text-lg">Remote Control + Keyboard</h1>
-            </div>
-            <div class="flex gap-4 items-center">
-                <span id="auth-status" class="text-xs text-slate-400 italic">Connecting...</span>
-                <div class="bg-slate-700 px-3 py-1 rounded-full text-xs flex items-center gap-2">
-                    <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span id="status-text">Offline</span>
-                </div>
-            </div>
-        </header>
+    <!-- Navbar -->
+    <header class="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
+        <h1 class="font-bold text-lg flex items-center gap-2">
+            <span class="bg-red-600 p-1.5 rounded shadow-lg">💻</span> 
+            <span class="hidden sm:inline">Remote Control Panel</span>
+            <span class="sm:hidden">Remote</span>
+        </h1>
+        <div id="status-badge" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-xs">
+            <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
+            <span id="status-text" class="font-medium uppercase tracking-tighter">Connecting</span>
+        </div>
+    </header>
 
-        <!-- Main Stream Area -->
-        <main class="flex-1 relative bg-black flex items-center justify-center p-2 overflow-hidden">
-            <div id="screen-container" class="relative max-w-full max-h-full cursor-crosshair group shadow-2xl border border-slate-800">
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <!-- Main Screen Area -->
+        <div class="flex-[3] relative bg-black flex items-center justify-center p-2 overflow-hidden">
+            <div id="screen-container" class="relative max-w-full max-h-full border border-slate-800 shadow-2xl cursor-crosshair">
                 <img id="stream-img" src="" class="hidden max-w-full max-h-full block" draggable="false">
                 
                 <!-- Remote Cursor Overlay -->
                 <div id="remote-cursor" class="absolute w-5 h-5 hidden">
-                    <svg viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="1">
+                    <svg viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="1.5">
                         <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
                     </svg>
                 </div>
 
-                <!-- Overlay for Loading -->
+                <!-- Loader -->
                 <div id="loader" class="absolute inset-0 flex items-center justify-center bg-slate-900">
                     <div class="text-center">
-                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-                        <p class="text-slate-400">Connecting to Remote...</p>
+                        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mx-auto mb-4"></div>
+                        <p class="text-slate-500 text-xs">Awaiting Stream...</p>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
 
-        <!-- Keyboard Controls Section -->
-        <section class="bg-slate-800 border-t border-slate-700 p-4 shrink-0">
-            <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-4 items-center">
-                <!-- Text Input -->
-                <div class="flex-1 w-full relative">
-                    <input type="text" id="keyboard-input" placeholder="Yaha type karke enter dabaye..." 
-                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500 transition-all">
-                    <button id="send-btn" class="absolute right-2 top-1.5 bg-blue-600 hover:bg-blue-500 px-3 py-0.5 rounded text-[10px] font-bold">SEND</button>
+        <!-- Sidebar (Keyboard & Clipboard) -->
+        <div class="flex-1 bg-slate-800 border-l border-slate-700 p-4 flex flex-col gap-4 overflow-y-auto shrink-0 md:w-80">
+            
+            <!-- Remote Clipboard Section -->
+            <div class="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-[10px] font-black text-blue-400 uppercase tracking-widest">📋 Clipboard Sync</h3>
+                    <span class="text-[9px] text-slate-500 font-bold">10M EXPIRY</span>
                 </div>
-
-                <!-- Special Buttons -->
-                <div class="flex gap-2 shrink-0">
-                    <button class="key-btn" onclick="sendSpecialKey('enter')">Enter</button>
-                    <button class="key-btn" onclick="sendSpecialKey('space')">Space</button>
-                    <button class="key-btn" onclick="sendSpecialKey('backspace')">Back</button>
+                <div id="clipboard-list" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+                    <p class="text-[11px] text-slate-600 italic text-center py-4">No data captured yet...</p>
                 </div>
             </div>
-        </section>
 
-        <footer class="p-1 bg-slate-900 text-[10px] text-center text-slate-600 uppercase tracking-widest shrink-0">
-            Control: Click to move/click • Input: Type above or use special keys
-        </footer>
-    </div>
+            <!-- Remote Input Section -->
+            <div class="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
+                <h3 class="text-[10px] font-black text-green-400 uppercase tracking-widest mb-3">⌨️ Remote Input</h3>
+                <div class="flex flex-col gap-3">
+                    <div class="relative">
+                        <input type="text" id="keyboard-input" autocomplete="off" placeholder="Type message..." 
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-blue-500 transition-all">
+                        <button id="send-btn" class="absolute right-1.5 top-1.5 bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[10px] font-bold transition-all">SEND</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="sendSpecialKey('enter')" class="key-btn">Enter</button>
+                        <button onclick="sendSpecialKey('space')" class="key-btn">Space</button>
+                        <button onclick="sendSpecialKey('backspace')" class="key-btn">Back</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-auto text-center">
+                <p class="text-[9px] text-slate-600 uppercase font-bold tracking-tighter">
+                    Click screen to remote click<br>Type above to send keys
+                </p>
+            </div>
+        </div>
+    </main>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDYbGLAXKaY9uVyNPDCS-bvxsQvPWiLouk",
-            authDomain: "sainfoxiya-com-a7733.firebaseapp.com",
-            projectId: "sainfoxiya-com-a7733",
-            storageBucket: "sainfoxiya-com-a7733.firebasestorage.app",
-            appId: "1:639762867502:web:826662477ce123110fc6bf"
+        const firebaseConfig = { 
+            apiKey: "AIzaSyDYbGLAXKaY9uVyNPDCS-bvxsQvPWiLouk", 
+            authDomain: "sainfoxiya-com-a7733.firebaseapp.com", 
+            projectId: "sainfoxiya-com-a7733", 
+            storageBucket: "sainfoxiya-com-a7733.firebasestorage.app", 
+            appId: "1:639762867502:web:826662477ce123110fc6bf" 
         };
 
         const appId = "sainfoxiya-com-a7733";
@@ -102,47 +108,43 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const screenContainer = document.getElementById('screen-container');
         const streamImg = document.getElementById('stream-img');
-        const loader = document.getElementById('loader');
+        const screenContainer = document.getElementById('screen-container');
+        const clipboardList = document.getElementById('clipboard-list');
         const remoteCursor = document.getElementById('remote-cursor');
+        const loader = document.getElementById('loader');
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
-        const keyboardInput = document.getElementById('keyboard-input');
-        const sendBtn = document.getElementById('send-btn');
 
-        // 1. Authenticate
-        signInAnonymously(auth).then(() => {
-            document.getElementById('auth-status').innerText = "Session Active";
+        // Initialize Authentication
+        signInAnonymously(auth);
+        onAuthStateChanged(auth, (user) => { 
+            if(user) {
+                document.getElementById('status-text').innerText = 'Authenticated';
+                initSync(); 
+            }
         });
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) startControl();
-        });
-
-        // Helper: Firestore mein action add karna
+        // Helper: Send Remote Action
         async function sendAction(data) {
             try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
-                    ...data,
-                    timestamp: serverTimestamp(),
-                    processed: false
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), { 
+                    ...data, 
+                    timestamp: serverTimestamp(), 
+                    processed: false 
                 });
-            } catch (err) {
-                console.error("Action failed:", err);
-            }
+            } catch (err) { console.error("Action Error:", err); }
         }
 
-        // Mouse Click Handler
+        // Screen Click Listener
         screenContainer.addEventListener('click', (e) => {
-            if (statusText.innerText !== 'LIVE') return;
+            if(statusText.innerText !== 'LIVE') return;
             const rect = screenContainer.getBoundingClientRect();
             const relX = (e.clientX - rect.left) / rect.width;
             const relY = (e.clientY - rect.top) / rect.height;
-
             sendAction({ type: 'click', relX, relY });
 
-            // Visual feedback
+            // Ripple Feedback
             const ripple = document.createElement('div');
             ripple.className = 'absolute w-6 h-6 border-2 border-white/50 rounded-full animate-ping pointer-events-none';
             ripple.style.left = `calc(${(relX * 100)}% - 12px)`;
@@ -151,44 +153,88 @@
             setTimeout(() => ripple.remove(), 600);
         });
 
-        // Keyboard Logic
-        keyboardInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') processInput();
-        });
-
-        sendBtn.addEventListener('click', processInput);
-
-        function processInput() {
-            const val = keyboardInput.value;
-            if (!val) return;
-            sendAction({ type: 'text', value: val });
-            keyboardInput.value = '';
-            keyboardInput.focus();
-        }
-
-        // Exposed global for onclick buttons
-        window.sendSpecialKey = (key) => {
-            sendAction({ type: 'special_key', value: key });
+        // Keyboard Handlers
+        window.sendSpecialKey = (key) => sendAction({ type: 'special_key', value: key });
+        
+        const keyboardInput = document.getElementById('keyboard-input');
+        const sendBtn = document.getElementById('send-btn');
+        
+        const submitText = () => {
+            if(keyboardInput.value) { 
+                sendAction({ type: 'text', value: keyboardInput.value }); 
+                keyboardInput.value = ''; 
+                keyboardInput.focus();
+            }
         };
 
-        // 3. Sync Stream
-        function startControl() {
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen');
-            onSnapshot(docRef, (snap) => {
-                if (snap.exists()) {
-                    const data = snap.data();
-                    if (data.frame) {
-                        streamImg.src = data.frame;
+        sendBtn.onclick = submitText;
+        keyboardInput.onkeypress = (e) => { if(e.key === 'Enter') submitText(); };
+
+        // Real-time Sync Logic
+        function initSync() {
+            // 1. Sync Stream Frame & Remote Cursor
+            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), (snap) => {
+                if(snap.exists()){
+                    const d = snap.data();
+                    if(d.frame) {
+                        streamImg.src = d.frame; 
                         streamImg.classList.remove('hidden');
                         loader.classList.add('hidden');
                     }
-                    if (data.cursorX !== undefined) {
-                        remoteCursor.style.left = (data.cursorX * 100) + '%';
-                        remoteCursor.style.top = (data.cursorY * 100) + '%';
+                    if(d.cursorX !== undefined) {
+                        remoteCursor.style.left = (d.cursorX * 100) + '%';
+                        remoteCursor.style.top = (d.cursorY * 100) + '%';
                         remoteCursor.classList.remove('hidden');
                     }
                     statusDot.className = 'w-2 h-2 rounded-full bg-green-500 live-indicator';
-                    statusText.innerText = 'LIVE';
+                    statusText.innerText = 'Live';
+                }
+            }, (err) => {
+                statusText.innerText = 'Offline';
+                statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+            });
+
+            // 2. Sync Clipboard (Last 5 items, only non-expired)
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(5));
+            onSnapshot(q, (snap) => {
+                clipboardList.innerHTML = '';
+                const now = Date.now() / 1000;
+                let count = 0;
+
+                snap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    // Only show if not expired
+                    if(data.expires_at > now) {
+                        count++;
+                        const div = document.createElement('div');
+                        div.className = 'clipboard-item';
+                        
+                        const textSpan = document.createElement('span');
+                        textSpan.innerText = data.text;
+                        
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'hidden group-hover:inline-block ml-2 text-blue-400 font-bold hover:text-white transition-colors';
+                        copyBtn.innerText = 'COPY';
+                        copyBtn.onclick = () => {
+                            // Fallback copy
+                            const el = document.createElement('textarea');
+                            el.value = data.text;
+                            document.body.appendChild(el);
+                            el.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(el);
+                            copyBtn.innerText = 'COPIED!';
+                            setTimeout(() => copyBtn.innerText = 'COPY', 2000);
+                        };
+
+                        div.appendChild(textSpan);
+                        div.appendChild(copyBtn);
+                        clipboardList.appendChild(div);
+                    }
+                });
+
+                if(count === 0) {
+                    clipboardList.innerHTML = '<p class="text-[11px] text-slate-600 italic text-center py-4">No active clipboard data...</p>';
                 }
             });
         }
