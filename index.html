@@ -3,188 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PC Remote - Realtime Stream</title>
+    <title>CloudStream Viewer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #080808; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
-        .glass { background: rgba(20, 20, 25, 0.8); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .screen-view { cursor: crosshair; transition: all 0.2s ease; position: relative; }
-        .screen-view:active { transform: scale(0.998); }
-        #loading { position: absolute; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 10; border-radius: 1.5rem; }
-        .click-ripple { position: absolute; width: 20px; height: 20px; border: 2px solid #3b82f6; border-radius: 50%; animation: ripple 0.6s ease-out; pointer-events: none; transform: translate(-50%, -50%); }
-        @keyframes ripple { from { transform: translate(-50%, -50%) scale(0); opacity: 1; } to { transform: translate(-50%, -50%) scale(3); opacity: 0; } }
+        .live-indicator {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
     </style>
 </head>
-<body class="p-4 md:p-10">
+<body class="bg-slate-900 text-white min-h-screen font-sans">
 
-    <div class="max-w-6xl mx-auto">
-        <div class="flex flex-col md:flex-row justify-between items-center mb-10 gap-5 glass p-6 rounded-[2.5rem]">
-            <div class="flex items-center gap-5">
-                <div class="h-14 w-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl">
-                    <svg viewBox="0 0 24 24" class="h-7 w-7 text-white" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.75 17L9 21h6l-.75-4M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-black text-white tracking-tighter italic">PC LIVE <span class="text-blue-500 underline decoration-2">STREAM</span></h1>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span id="status-dot" class="h-2 w-2 rounded-full bg-red-500"></span>
-                        <span id="status-text" class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Connecting...</span>
-                    </div>
-                </div>
-            </div>
-            <div class="flex items-center gap-4">
-                <p id="latency" class="text-[10px] font-mono text-gray-500">DELAY: — ms</p>
-                <button id="refresh-btn" class="bg-white text-black px-8 py-3 rounded-2xl font-black text-xs hover:bg-gray-200 transition-all active:scale-95 shadow-xl uppercase">Manual Refresh</button>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-10">
-            <div class="lg:col-span-3 space-y-6">
-                <div id="screen-container" class="screen-view glass rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 aspect-video group relative">
-                    <div id="loading">
-                        <div class="text-center">
-                            <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                            <p class="text-xs font-bold text-gray-600 uppercase tracking-widest">Awaiting Live Signal...</p>
-                        </div>
-                    </div>
-                    <img id="display" src="" class="w-full h-full object-contain hidden" draggable="false">
-                    <div class="absolute bottom-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 px-4 py-2 rounded-full text-[10px] font-bold text-white uppercase tracking-widest pointer-events-none">
-                        Click anywhere to control PC
-                    </div>
+                    <h1 class="text-xl font-bold tracking-tight">CloudStream HTML</h1>
+                    <p id="app-id-display" class="text-xs text-slate-400">Loading config...</p>
                 </div>
             </div>
 
-            <div class="space-y-6">
-                <div class="glass p-8 rounded-[2.5rem]">
-                    <h2 class="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-6">Run Command</h2>
-                    <input id="cmd-in" type="text" placeholder="e.g. start chrome" class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm mb-4 focus:border-blue-500 outline-none font-mono text-blue-400">
-                    <button id="cmd-btn" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs hover:bg-blue-500 shadow-lg shadow-blue-500/20">EXECUTE CMD</button>
+            <div id="status-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700">
+                <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
+                <span id="status-text" class="text-sm font-medium capitalize">Connecting</span>
+            </div>
+        </header>
+
+        <!-- Main Stream Area -->
+        <main class="w-full flex flex-col items-center">
+            <div class="relative w-full aspect-video bg-black rounded-2xl border border-slate-700 overflow-hidden shadow-2xl flex items-center justify-center">
+                
+                <!-- Loading State -->
+                <div id="loading-spinner" class="flex flex-col items-center gap-4">
+                    <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-slate-400 italic">Connecting to stream...</p>
                 </div>
 
-                <div class="glass p-8 rounded-[2.5rem]">
-                    <h2 class="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-6">Type Text</h2>
-                    <textarea id="type-in" placeholder="Write text to send..." class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm mb-4 focus:border-orange-500 outline-none resize-none font-medium" rows="2"></textarea>
-                    <button id="type-btn" class="w-full py-4 bg-white text-black rounded-2xl font-black text-xs hover:bg-gray-200">SEND KEYSTROKES</button>
+                <!-- Live Image -->
+                <img id="stream-img" src="" alt="Screen Stream" class="hidden w-full h-full object-contain">
+
+                <!-- Error/Empty State -->
+                <div id="empty-state" class="hidden text-center p-8">
+                    <svg class="mx-auto mb-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l20 20"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                    <h2 class="text-2xl font-semibold mb-2">Stream Offline</h2>
+                    <p class="text-slate-400 max-w-md">The broadcaster is not currently transmitting or the path is incorrect.</p>
                 </div>
 
-                <div class="p-4 text-center">
-                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">PC Resolution: 1920×1080 (mapped) • Stream: 640×360</p>
+                <div id="live-tag" class="hidden absolute top-4 left-4 bg-red-600 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider live-indicator">
+                    Live
                 </div>
             </div>
-        </div>
+
+            <!-- Stats Grid -->
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                    <h3 class="text-slate-400 text-xs font-semibold uppercase mb-1">Auth Status</h3>
+                    <p id="auth-status" class="text-sm italic text-slate-300">Authenticating...</p>
+                </div>
+                <div id="user-info" class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                    <h3 class="text-slate-400 text-xs font-semibold uppercase mb-1">Device UID</h3>
+                    <p id="uid-text" class="text-xs truncate font-mono">---</p>
+                </div>
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                    <h3 class="text-slate-400 text-xs font-semibold uppercase mb-1">Refresh Rate</h3>
+                    <p class="text-sm">Real-time (Stream-driven)</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="mt-12 text-center text-slate-500 text-xs border-t border-slate-800 pt-8">
+            Powered by Firebase Firestore & HTML5
+        </footer>
     </div>
 
+    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDYbGLAXKaY9uVyNPDCS-bvxsQvPWiLouk",
-            authDomain: "sainfoxiya-com-a7733.firebaseapp.com",
-            databaseURL: "https://sainfoxiya-com-a7733-default-rtdb.firebaseio.com",
-            projectId: "sainfoxiya-com-a7733",
-            storageBucket: "sainfoxiya-com-a7733.firebasestorage.app",
-            messagingSenderId: "639762867502",
-            appId: "1:639762867502:web:826662477ce123110fc6bf",
-            measurementId: "G-0Q3FJ4WYZF"
-        };
+        // Firebase configuration (Environment variables or default fallback)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                apiKey: "YOUR_API_KEY",
+                authDomain: "YOUR_PROJECT.firebaseapp.com",
+                projectId: "YOUR_PROJECT_ID",
+                storageBucket: "YOUR_PROJECT.appspot.com",
+                messagingSenderId: "SENDER_ID",
+                appId: "APP_ID"
+            };
 
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sainfoxiya-com-a7733';
+        document.getElementById('app-id-display').innerText = `ID: ${appId}`;
+
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = "pc-remote-pro";
 
+        // UI Elements
+        const streamImg = document.getElementById('stream-img');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const emptyState = document.getElementById('empty-state');
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
-        const display = document.getElementById('display');
-        const loading = document.getElementById('loading');
-        const latencyEl = document.getElementById('latency');
+        const liveTag = document.getElementById('live-tag');
+        const authStatus = document.getElementById('auth-status');
+        const uidText = document.getElementById('uid-text');
 
-        function setStatus(msg, color = 'bg-gray-500') {
-            statusText.innerText = msg;
-            statusDot.className = `h-2 w-2 rounded-full ${color}`;
+        function updateStatus(state) {
+            statusText.innerText = state;
+            if (state === 'Live') {
+                statusDot.className = 'w-2 h-2 rounded-full bg-green-500 live-indicator';
+                liveTag.classList.remove('hidden');
+            } else if (state === 'Waiting') {
+                statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500';
+                liveTag.classList.add('hidden');
+            } else {
+                statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+                liveTag.classList.add('hidden');
+            }
         }
 
-        setStatus("Initializing...", "bg-yellow-500");
-
-        signInAnonymously(auth)
-            .then(() => {
-                console.log("✓ Auth OK");
-                setStatus("Connected", "bg-green-500 animate-pulse");
-            })
-            .catch(err => {
-                console.error("Auth fail:", err);
-                setStatus("Auth Error", "bg-red-500");
-            });
-
-        const displayDoc = doc(db, 'artifacts', appId, 'public', 'data', 'display', 'display');
-
-        onSnapshot(displayDoc, (snap) => {
-            if (!snap.exists()) {
-                console.log("Display doc not found yet");
-                return;
-            }
-
-            const data = snap.data();
-            console.log("Snapshot OK | binary KB:", data.binary_kb || '?', "| ts:", data.timestamp);
-
-            const start = Date.now();
-            display.src = data.base64;
-
-            display.onload = () => {
-                console.log("Image rendered successfully");
-                display.classList.remove('hidden');
-                loading.classList.add('hidden');
-                const delay = Date.now() - start;
-                latencyEl.innerText = `DELAY: ${delay}ms`;
-                setStatus("Streaming", "bg-green-500");
-            };
-
-            display.onerror = (e) => {
-                console.error("Image load failed:", e);
-                setStatus("Image Render Error", "bg-red-500");
-            };
-        }, (err) => {
-            console.error("Firestore listener error:", err);
-            setStatus("Stream Error", "bg-red-500");
+        // 1. Authenticate
+        signInAnonymously(auth).catch(err => {
+            console.error("Auth failed:", err);
+            authStatus.innerText = "Auth Failed";
         });
 
-        async function pushCommand(type, data) {
-            try {
-                const col = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
-                await addDoc(col, { type, data, executed: false, timestamp: serverTimestamp() });
-                console.log(`Command sent: ${type}`);
-            } catch (e) {
-                console.error("Command send fail:", e);
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                authStatus.innerText = "Authenticated";
+                uidText.innerText = user.uid;
+                startListening();
             }
+        });
+
+        // 2. Listen to Firestore
+        function startListening() {
+            // Path: /artifacts/{appId}/public/data/streams/live_screen
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen');
+
+            onSnapshot(docRef, (docSnap) => {
+                loadingSpinner.classList.add('hidden');
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.frame) {
+                        streamImg.src = data.frame;
+                        streamImg.classList.remove('hidden');
+                        emptyState.classList.add('hidden');
+                        updateStatus('Live');
+                    }
+                } else {
+                    streamImg.classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+                    updateStatus('Waiting');
+                }
+            }, (error) => {
+                console.error("Firestore Listen Error:", error);
+                updateStatus('Error');
+                loadingSpinner.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            });
         }
-
-        document.getElementById('screen-container').onclick = (e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = Math.round(((e.clientX - rect.left) / rect.width) * 1920);
-            const y = Math.round(((e.clientY - rect.top) / rect.height) * 1080);
-
-            const rip = document.createElement('div');
-            rip.className = 'click-ripple';
-            rip.style.left = `${e.clientX - rect.left}px`;
-            rip.style.top = `${e.clientY - rect.top}px`;
-            e.currentTarget.appendChild(rip);
-            setTimeout(() => rip.remove(), 600);
-
-            pushCommand('click', { x, y });
-        };
-
-        document.getElementById('cmd-btn').onclick = () => {
-            const val = document.getElementById('cmd-in').value.trim();
-            if (val) { pushCommand('cmd', val); document.getElementById('cmd-in').value = ''; }
-        };
-
-        document.getElementById('type-btn').onclick = () => {
-            const val = document.getElementById('type-in').value.trim();
-            if (val) { pushCommand('type', val); document.getElementById('type-in').value = ''; }
-        };
-
-        document.getElementById('refresh-btn').onclick = () => pushCommand('refresh', {});
     </script>
 </body>
 </html>
