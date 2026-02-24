@@ -3,97 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PC Remote Controller - Realtime</title>
+    <title>PC Remote - Realtime Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #050505; color: #e2e8f0; font-family: 'Inter', sans-serif; }
-        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .screen-container { position: relative; cursor: crosshair; transition: transform 0.3s ease; }
-        .screen-container:active { transform: scale(0.995); }
-        #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 50; border-radius: 1.5rem; }
-        .dot { position: absolute; width: 12px; height: 12px; background: #3b82f6; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 15px #3b82f6; }
+        body { background-color: #080808; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
+        .glass { background: rgba(20, 20, 25, 0.8); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .screen-view { cursor: crosshair; transition: all 0.2s ease; position: relative; }
+        .screen-view:active { transform: scale(0.998); }
+        #loading { position: absolute; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 10; border-radius: 1.5rem; }
+        .click-ripple { position: absolute; width: 20px; height: 20px; border: 2px solid #3b82f6; border-radius: 50%; animation: ripple 0.6s ease-out; pointer-events: none; transform: translate(-50%, -50%); }
+        @keyframes ripple { from { transform: translate(-50%, -50%) scale(0); opacity: 1; } to { transform: translate(-50%, -50%) scale(3); opacity: 0; } }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="p-4 md:p-10">
 
-    <div class="max-w-7xl mx-auto">
-        <!-- Header Section -->
-        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 glass p-6 rounded-[2rem]">
-            <div class="flex items-center gap-4">
-                <div class="h-12 w-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 21h6l-.75-4M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-10 gap-5 glass p-6 rounded-[2.5rem]">
+            <div class="flex items-center gap-5">
+                <div class="h-14 w-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl">
+                    <svg viewBox="0 0 24 24" class="h-7 w-7 text-white" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.75 17L9 21h6l-.75-4M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                 </div>
                 <div>
-                    <h1 class="text-xl font-black italic tracking-tighter text-white uppercase">Firestore Remote <span class="text-blue-500">v5.1</span></h1>
+                    <h1 class="text-2xl font-black text-white tracking-tighter italic">PC REMOTE <span class="text-blue-500 underline decoration-2">PRO</span></h1>
                     <div class="flex items-center gap-2 mt-1">
-                        <span id="status-dot" class="h-2 w-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                        <span id="status-text" class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Initializing...</span>
+                        <span id="status-dot" class="h-2 w-2 rounded-full bg-red-500"></span>
+                        <span id="status-text" class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Offline</span>
                     </div>
                 </div>
             </div>
-            
-            <div class="flex gap-3">
-                <button id="btn-refresh" class="px-6 py-2 bg-white text-black rounded-xl font-bold text-xs hover:bg-gray-200 transition-all active:scale-95">
-                    REFRESH SCREEN
-                </button>
-            </div>
-        </header>
+            <button id="refresh-btn" class="bg-white text-black px-8 py-3 rounded-2xl font-black text-xs hover:bg-gray-200 transition-all active:scale-95 shadow-xl">REFRESH FEED</button>
+        </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <!-- Screen Display -->
-            <div class="lg:col-span-3">
-                <div id="screen-box" class="screen-container glass rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 aspect-video">
-                    <div id="loading-overlay">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-10">
+            <!-- Screen Area -->
+            <div class="lg:col-span-3 space-y-6">
+                <div id="screen-container" class="screen-view glass rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 aspect-video">
+                    <div id="loading">
                         <div class="text-center">
-                            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-2"></div>
-                            <p class="text-xs font-medium text-gray-500 uppercase">Awaiting Python Signal</p>
+                            <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                            <p class="text-xs font-bold text-gray-600 uppercase tracking-widest">Connecting to Firestore...</p>
                         </div>
                     </div>
-                    <img id="main-screen" src="" class="w-full h-full object-contain hidden" alt="PC Feed">
-                    <div id="click-dot" class="dot hidden"></div>
+                    <img id="display" src="" class="w-full h-full object-contain hidden">
                 </div>
             </div>
 
-            <!-- Controls Sidebar -->
+            <!-- Controls -->
             <div class="space-y-6">
-                <!-- CMD Execution -->
-                <div class="glass p-6 rounded-[2rem]">
-                    <h3 class="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        Command Executor
-                    </h3>
-                    <input id="cmd-input" type="text" placeholder="start chrome..." class="w-full bg-black/50 border border-white/5 p-4 rounded-xl text-sm mb-3 focus:border-blue-500 outline-none transition-all font-mono">
-                    <button id="btn-cmd" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20">RUN CMD</button>
+                <div class="glass p-8 rounded-[2.5rem]">
+                    <h2 class="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-6">Console Command</h2>
+                    <input id="cmd-in" type="text" placeholder="e.g. start chrome" class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm mb-4 focus:border-blue-500 outline-none font-mono text-blue-400">
+                    <button id="cmd-btn" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs hover:bg-blue-500 shadow-lg shadow-blue-500/20">EXECUTE</button>
                 </div>
 
-                <!-- Keyboard Sync -->
-                <div class="glass p-6 rounded-[2rem]">
-                    <h3 class="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m4 0h1m-7 4h12a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        Keyboard Input
-                    </h3>
-                    <textarea id="type-input" placeholder="Type text to send..." class="w-full bg-black/50 border border-white/5 p-4 rounded-xl text-sm mb-3 focus:border-orange-500 outline-none transition-all resize-none" rows="2"></textarea>
-                    <button id="btn-type" class="w-full py-4 bg-white text-black rounded-xl font-bold text-xs hover:bg-gray-200 transition-all">SEND KEYSTROKES</button>
-                </div>
-
-                <!-- Telemetry -->
-                <div class="glass p-5 rounded-[1.5rem] opacity-50">
-                    <p id="coords-display" class="text-[10px] font-mono text-gray-400">CURSOR: 0, 0</p>
-                    <p id="last-sync" class="text-[10px] font-mono text-gray-400 mt-1">LAST SYNC: NEVER</p>
+                <div class="glass p-8 rounded-[2.5rem]">
+                    <h2 class="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-6">Keyboard Input</h2>
+                    <textarea id="type-in" placeholder="Write text here..." class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm mb-4 focus:border-orange-500 outline-none resize-none" rows="2"></textarea>
+                    <button id="type-btn" class="w-full py-4 bg-white text-black rounded-2xl font-black text-xs hover:bg-gray-200">SEND TEXT</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDK Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Firebase Configuration (Aapka diya hua config)
         const firebaseConfig = {
             apiKey: "AIzaSyDYbGLAXKaY9uVyNPDCS-bvxsQvPWiLouk",
             authDomain: "sainfoxiya-com-a7733.firebaseapp.com",
@@ -108,97 +85,72 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = "pc-remote-pro"; // Python script ke saath match hona chahiye
+        const appId = "pc-remote-pro";
 
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
-        const mainScreen = document.getElementById('main-screen');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const coordsDisplay = document.getElementById('coords-display');
-        const lastSyncDisplay = document.getElementById('last-sync');
+        const display = document.getElementById('display');
+        const loading = document.getElementById('loading');
 
-        function updateStatus(text, colorClass) {
-            statusText.innerText = text;
-            statusDot.className = `h-2 w-2 rounded-full ${colorClass}`;
+        function setStatus(msg, color) {
+            statusText.innerText = msg;
+            statusDot.className = `h-2 w-2 rounded-full ${color}`;
         }
 
-        // 1. Auth Logic
-        signInAnonymously(auth).catch(err => updateStatus("Auth Error", "bg-red-500"));
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                updateStatus("System Ready", "bg-green-500");
-                initSync();
-            }
-        });
-
-        // 2. Sync Logic (Get Screenshot)
-        function initSync() {
-            const displayDoc = doc(db, 'artifacts', appId, 'public', 'data', 'display', 'display');
-            onSnapshot(displayDoc, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    mainScreen.src = data.base64;
-                    mainScreen.classList.remove('hidden');
-                    loadingOverlay.classList.add('hidden');
-                    lastSyncDisplay.innerText = `LAST SYNC: ${new Date().toLocaleTimeString()}`;
-                }
-            }, (error) => {
-                updateStatus("Sync Fail", "bg-red-500");
-                console.error(error);
+        // 1. Auth with Error Catch for Domain
+        signInAnonymously(auth)
+            .then(() => setStatus("Online", "bg-green-500"))
+            .catch(err => {
+                console.error(err);
+                setStatus("Auth Error (Check Domain)", "bg-red-500");
+                alert("Domain unauthorized! Please add " + window.location.hostname + " to Firebase Auth domains.");
             });
-        }
 
-        // 3. Send Commands
-        async function sendCommand(type, data) {
-            try {
-                updateStatus("Pushing...", "bg-blue-500");
-                const commandsCol = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
-                await addDoc(commandsCol, {
-                    type: type,
-                    data: data,
-                    timestamp: serverTimestamp(),
-                    executed: false
-                });
-                setTimeout(() => updateStatus("System Ready", "bg-green-500"), 1000);
-            } catch (err) {
-                updateStatus("Push Error", "bg-red-500");
+        // 2. Realtime Feed
+        const displayDoc = doc(db, 'artifacts', appId, 'public', 'data', 'display', 'display');
+        onSnapshot(displayDoc, (snap) => {
+            if (snap.exists()) {
+                display.src = snap.data().base64;
+                display.classList.remove('hidden');
+                loading.classList.add('hidden');
             }
-        }
-
-        // Click Handler
-        document.getElementById('screen-box').addEventListener('click', function(e) {
-            const rect = this.getBoundingClientRect();
-            const x_pixel = e.clientX - rect.left;
-            const y_pixel = e.clientY - rect.top;
-
-            // PC Resolution Scaling (Mapping to 1920x1080)
-            const final_x = Math.round((x_pixel / rect.width) * 1920);
-            const final_y = Math.round((y_pixel / rect.height) * 1080);
-
-            coordsDisplay.innerText = `CURSOR: ${final_x}, ${final_y}`;
-            
-            // Visual feedback
-            const dot = document.getElementById('click-dot');
-            dot.style.left = x_pixel + 'px';
-            dot.style.top = y_pixel + 'px';
-            dot.classList.remove('hidden');
-
-            sendCommand('click', { x: final_x, y: final_y });
         });
 
-        // UI Button Handlers
-        document.getElementById('btn-cmd').onclick = () => {
-            const val = document.getElementById('cmd-input').value;
-            if(val) { sendCommand('cmd', val); document.getElementById('cmd-input').value = ''; }
+        // 3. Command Pusher
+        async function push(type, data) {
+            try {
+                const col = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
+                await addDoc(col, { type, data, executed: false, timestamp: serverTimestamp() });
+            } catch (e) { alert("Permission Denied: Update Firestore Rules!"); }
+        }
+
+        document.getElementById('screen-container').onclick = (e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = Math.round(((e.clientX - rect.left) / rect.width) * 1920);
+            const y = Math.round(((e.clientY - rect.top) / rect.height) * 1080);
+            
+            // Ripple effect
+            const rip = document.createElement('div');
+            rip.className = 'click-ripple';
+            rip.style.left = (e.clientX - rect.left) + 'px';
+            rip.style.top = (e.clientY - rect.top) + 'px';
+            e.currentTarget.appendChild(rip);
+            setTimeout(() => rip.remove(), 600);
+
+            push('click', { x, y });
         };
 
-        document.getElementById('btn-type').onclick = () => {
-            const val = document.getElementById('type-input').value;
-            if(val) { sendCommand('type', val); document.getElementById('type-input').value = ''; }
+        document.getElementById('cmd-btn').onclick = () => {
+            const el = document.getElementById('cmd-in');
+            if(el.value) { push('cmd', el.value); el.value = ''; }
         };
 
-        document.getElementById('btn-refresh').onclick = () => sendCommand('refresh', {});
+        document.getElementById('type-btn').onclick = () => {
+            const el = document.getElementById('type-in');
+            if(el.value) { push('type', el.value); el.value = ''; }
+        };
+
+        document.getElementById('refresh-btn').onclick = () => push('refresh', {});
 
     </script>
 </body>
