@@ -6,7 +6,7 @@
     <title>PC Remote Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { cursor: none; } /* Hide default cursor to use custom one */
+        body { cursor: none; } 
         
         .screenshot-container {
             cursor: none;
@@ -18,13 +18,12 @@
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
 
-        /* Custom Virtual Cursor */
         #virtual-cursor {
             position: fixed;
             width: 20px;
             height: 20px;
             border: 2px solid white;
-            background: rgba(59, 130, 246, 0.5); /* Blue tint */
+            background: rgba(59, 130, 246, 0.5); 
             border-radius: 50%;
             pointer-events: none;
             z-index: 100;
@@ -69,51 +68,48 @@
 </head>
 <body class="bg-gray-950 text-white p-4">
 
-    <!-- Custom Cursor Element -->
     <div id="virtual-cursor"></div>
 
     <div class="max-w-6xl mx-auto">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-black text-blue-500 tracking-tighter italic">REMOTE ENGINE v2.0</h1>
+            <h1 class="text-2xl font-black text-blue-500 tracking-tighter italic">REMOTE ENGINE v2.5</h1>
             <div class="flex items-center gap-4">
-                <span id="sync-time" class="text-xs text-gray-500 font-mono">Not synced</span>
-                <button onclick="refreshImage()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full font-bold text-sm transition-all transform active:scale-95 shadow-lg shadow-blue-900/20">
-                    🔄 REFRESH VIEW
+                <span id="sync-time" class="text-xs text-gray-500 font-mono italic">Waiting for sync...</span>
+                <button onclick="requestScreenshot()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full font-bold text-sm transition-all transform active:scale-95 shadow-lg shadow-blue-900/20">
+                    📸 REQUEST SCREENSHOT
                 </button>
             </div>
         </div>
 
         <div class="flex flex-col lg:flex-row gap-6">
-            <!-- Main Display -->
             <div class="flex-grow text-center">
                 <div class="screenshot-container" id="container">
                     <div id="loader" class="loader">
                         <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500"></div>
                     </div>
-                    <!-- Using Raw URL for zero cache delay -->
+                    <!-- Direct Raw URL for Instant Updates -->
                     <img id="screenshot" src="https://raw.githubusercontent.com/blockchainverifying/asset/main/screenshot.png" 
                          alt="PC Screen" class="max-w-full h-auto opacity-0 transition-opacity duration-700">
                     <div id="dot"></div>
                 </div>
             </div>
 
-            <!-- Controls Sidebar -->
             <div class="w-full lg:w-80 space-y-4">
                 <div class="bg-gray-900 border border-gray-800 p-5 rounded-2xl shadow-xl">
-                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Precision Control</h2>
+                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Live Coordinates</h2>
                     <div id="coords" class="text-3xl font-mono text-blue-400 mb-2">X: 0 | Y: 0</div>
                     <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden">
                         <div id="progress" class="h-full bg-blue-500 w-0 transition-all duration-300"></div>
                     </div>
-                    <p class="text-[10px] text-gray-600 mt-3 italic">Click anywhere on the image to simulate a physical mouse click on the remote machine.</p>
+                    <p class="text-[10px] text-gray-600 mt-3">Yahan click karne se PC par command jayegi aur 2-3 seconds mein image refresh hogi.</p>
                 </div>
 
                 <div class="bg-gray-900 border border-gray-800 p-5 rounded-2xl shadow-xl">
                     <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Remote Keyboard</h2>
-                    <input id="typeInput" type="text" placeholder="Type message..." 
-                           class="w-full bg-black border border-gray-800 p-3 rounded-lg text-sm mb-3 focus:border-blue-500 outline-none transition-colors">
+                    <input id="typeInput" type="text" placeholder="Type something..." 
+                           class="w-full bg-black border border-gray-800 p-3 rounded-lg text-sm mb-3 focus:border-blue-500 outline-none">
                     <button onclick="sendType()" class="w-full bg-gray-100 text-black font-black py-3 rounded-lg hover:bg-white transition-all active:scale-95">
-                        SEND KEYSTROKES
+                        TYPE & SEND
                     </button>
                 </div>
             </div>
@@ -128,35 +124,38 @@
         const vCursor = document.getElementById('virtual-cursor');
         const container = document.getElementById('container');
 
-        // Virtual Cursor Movement Logic
         document.addEventListener('mousemove', (e) => {
             vCursor.style.left = e.clientX + 'px';
             vCursor.style.top = e.clientY + 'px';
-            
-            // Interaction effect when hovering the screen
             const rect = container.getBoundingClientRect();
             if (e.clientX >= rect.left && e.clientX <= rect.right && 
                 e.clientY >= rect.top && e.clientY <= rect.bottom) {
                 vCursor.style.borderColor = '#3b82f6';
-                vCursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                vCursor.style.transform = 'translate(-50%, -50%) scale(1.4)';
             } else {
                 vCursor.style.borderColor = 'white';
                 vCursor.style.transform = 'translate(-50%, -50%) scale(1)';
             }
         });
 
+        // This bypasses GitHub's 5-minute cache
         function refreshImage() {
             loader.style.display = 'block';
-            const cacheBypass = new Date().getTime();
-            img.src = `https://raw.githubusercontent.com/blockchainverifying/asset/main/screenshot.png?v=${cacheBypass}`;
+            const cacheBuster = new Date().getTime();
+            img.src = `https://raw.githubusercontent.com/blockchainverifying/asset/main/screenshot.png?v=${cacheBuster}`;
             document.getElementById('progress').style.width = '100%';
-            setTimeout(() => { document.getElementById('progress').style.width = '0%'; }, 500);
+            setTimeout(() => { document.getElementById('progress').style.width = '0%'; }, 600);
+        }
+
+        // New function to manually request a screenshot from the website
+        function requestScreenshot() {
+            sendCommand("📸 Manual Refresh");
         }
 
         img.onload = () => { 
             loader.style.display = 'none'; 
             img.classList.remove('opacity-0');
-            document.getElementById('sync-time').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+            document.getElementById('sync-time').innerText = "Last Updated: " + new Date().toLocaleTimeString();
         };
 
         container.addEventListener('mousedown', function(e) {
@@ -164,7 +163,6 @@
             const x_pixel = e.clientX - rect.left;
             const y_pixel = e.clientY - rect.top;
 
-            // Change this to your PC's actual Resolution
             const pc_width = 1920; 
             const pc_height = 1080;
 
@@ -178,8 +176,7 @@
             dot.style.left = x_pixel + 'px';
             dot.style.top = y_pixel + 'px';
 
-            // Visual feedback on virtual cursor
-            vCursor.style.background = 'rgba(239, 68, 68, 0.8)'; // Red flash
+            vCursor.style.background = 'rgba(239, 68, 68, 0.8)';
             setTimeout(() => { vCursor.style.background = 'rgba(59, 130, 246, 0.5)'; }, 200);
 
             sendCommand(`/click ${final_x} ${final_y}`);
@@ -194,14 +191,22 @@
         }
 
         function sendCommand(cmd) {
-            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(cmd)}`)
-            .then(() => {
-                setTimeout(refreshImage, 2500); // Wait for PC to process and upload
-            });
+            // Using /start to trigger sync or specific commands
+            let text = cmd;
+            if (cmd === "📸 Manual Refresh") {
+                // Since our bot triggers sync on /start button or specific commands
+                text = "📸 Manual Sync Request";
+                // Triggering the bot's callback-like action via text
+                fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=/start`);
+            } else {
+                fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(cmd)}`);
+            }
+            
+            // Auto refresh after command to see the result
+            setTimeout(refreshImage, 3500); 
         }
 
-        // Auto Refresh
-        setInterval(refreshImage, 15000);
+        setInterval(refreshImage, 10000); // 10 Sec Auto Refresh
         refreshImage();
     </script>
 </body>
