@@ -3,181 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudStream Viewer</title>
+    <title>CloudStream Remote Control</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .live-indicator {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .5; }
+        .live-indicator { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        #remote-cursor {
+            transition: all 0.1s ease-out;
+            pointer-events: none;
+            z-index: 50;
         }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen font-sans">
+<body class="bg-slate-900 text-white min-h-screen font-sans overflow-hidden">
 
-    <div class="max-w-6xl mx-auto p-4 md:p-8">
+    <div class="h-screen flex flex-col">
         <!-- Header -->
-        <header class="flex items-center justify-between mb-8">
+        <header class="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+                <div class="bg-red-600 p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/></svg>
                 </div>
-                <div>
-                    <h1 class="text-xl font-bold tracking-tight">CloudStream HTML</h1>
-                    <p id="app-id-display" class="text-xs text-slate-400">Loading config...</p>
-                </div>
+                <h1 class="font-bold text-lg">Remote Desktop Control</h1>
             </div>
-
-            <div id="status-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700">
-                <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
-                <span id="status-text" class="text-sm font-medium capitalize">Connecting</span>
+            <div class="flex gap-4 items-center">
+                <span id="auth-status" class="text-xs text-slate-400">Connecting...</span>
+                <div class="bg-slate-700 px-3 py-1 rounded-full text-xs flex items-center gap-2">
+                    <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span id="status-text">Offline</span>
+                </div>
             </div>
         </header>
 
-        <!-- Main Stream Area -->
-        <main class="w-full flex flex-col items-center">
-            <div class="relative w-full aspect-video bg-black rounded-2xl border border-slate-700 overflow-hidden shadow-2xl flex items-center justify-center">
+        <!-- Stream Window -->
+        <main class="flex-1 relative bg-black flex items-center justify-center p-4">
+            <div id="screen-container" class="relative max-w-full max-h-full cursor-crosshair group shadow-2xl border border-slate-800">
+                <img id="stream-img" src="" class="hidden max-w-full max-h-full block" draggable="false">
                 
-                <!-- Loading State -->
-                <div id="loading-spinner" class="flex flex-col items-center gap-4">
-                    <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <!-- Remote User's Cursor Overlay -->
+                <div id="remote-cursor" class="absolute w-5 h-5 hidden">
+                    <svg viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="1">
+                        <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
                     </svg>
-                    <p class="text-slate-400 italic">Connecting to stream...</p>
                 </div>
 
-                <!-- Live Image -->
-                <img id="stream-img" src="" alt="Screen Stream" class="hidden w-full h-full object-contain">
-
-                <!-- Error/Empty State -->
-                <div id="empty-state" class="hidden text-center p-8">
-                    <svg class="mx-auto mb-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l20 20"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-                    <h2 class="text-2xl font-semibold mb-2">Stream Offline</h2>
-                    <p class="text-slate-400 max-w-md">The broadcaster is not currently transmitting or the path is incorrect.</p>
-                </div>
-
-                <div id="live-tag" class="hidden absolute top-4 left-4 bg-red-600 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider live-indicator">
-                    Live
-                </div>
-            </div>
-
-            <!-- Stats Grid -->
-            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                    <h3 class="text-slate-400 text-xs font-semibold uppercase mb-1">Auth Status</h3>
-                    <p id="auth-status" class="text-sm italic text-slate-300">Authenticating...</p>
-                </div>
-                <div id="user-info" class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                    <h3 class="text-slate-400 text-xs font-semibold uppercase mb-1">Device UID</h3>
-                    <p id="uid-text" class="text-xs truncate font-mono">---</p>
-                </div>
-                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                    <h3 class="text-slate-400 text-xs font-semibold uppercase mb-1">Refresh Rate</h3>
-                    <p class="text-sm">Real-time (Stream-driven)</p>
+                <!-- Overlay for Loading -->
+                <div id="loader" class="absolute inset-0 flex items-center justify-center bg-slate-900">
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
+                        <p class="text-slate-400">Waiting for Stream...</p>
+                    </div>
                 </div>
             </div>
         </main>
 
-        <footer class="mt-12 text-center text-slate-500 text-xs border-t border-slate-800 pt-8">
-            Powered by Firebase Firestore & HTML5
+        <footer class="p-2 bg-slate-800 text-[10px] text-center text-slate-500 uppercase tracking-widest">
+            Click anywhere on the screen to control remote PC
         </footer>
     </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Using your specific Firebase configuration
+        // Configuration matching your sainfoxiya-com-a7733 project
         const firebaseConfig = {
             apiKey: "AIzaSyDYbGLAXKaY9uVyNPDCS-bvxsQvPWiLouk",
             authDomain: "sainfoxiya-com-a7733.firebaseapp.com",
-            databaseURL: "https://sainfoxiya-com-a7733-default-rtdb.firebaseio.com",
             projectId: "sainfoxiya-com-a7733",
             storageBucket: "sainfoxiya-com-a7733.firebasestorage.app",
-            messagingSenderId: "639762867502",
-            appId: "1:639762867502:web:826662477ce123110fc6bf",
-            measurementId: "G-0Q3FJ4WYZF"
+            appId: "1:639762867502:web:826662477ce123110fc6bf"
         };
 
         const appId = "sainfoxiya-com-a7733";
-        document.getElementById('app-id-display').innerText = `ID: ${appId}`;
-
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // UI Elements
+        const screenContainer = document.getElementById('screen-container');
         const streamImg = document.getElementById('stream-img');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const emptyState = document.getElementById('empty-state');
+        const loader = document.getElementById('loader');
+        const remoteCursor = document.getElementById('remote-cursor');
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
-        const liveTag = document.getElementById('live-tag');
-        const authStatus = document.getElementById('auth-status');
-        const uidText = document.getElementById('uid-text');
-
-        function updateStatus(state) {
-            statusText.innerText = state;
-            if (state === 'Live') {
-                statusDot.className = 'w-2 h-2 rounded-full bg-green-500 live-indicator';
-                liveTag.classList.remove('hidden');
-            } else if (state === 'Waiting') {
-                statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500';
-                liveTag.classList.add('hidden');
-            } else {
-                statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
-                liveTag.classList.add('hidden');
-            }
-        }
 
         // 1. Authenticate
         signInAnonymously(auth).then(() => {
-            authStatus.innerText = "Authenticated Anonymously";
+            document.getElementById('auth-status').innerText = "Connected";
         }).catch(err => {
-            console.error("Auth failed:", err);
-            authStatus.innerText = "Auth Failed: " + err.message;
+            document.getElementById('auth-status').innerText = "Auth Error";
+            console.error(err);
         });
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                uidText.innerText = user.uid;
-                startListening();
+            if (user) startControl();
+        });
+
+        // 2. Click Handling (Sends relative coordinates to Python)
+        screenContainer.addEventListener('click', async (e) => {
+            if (statusText.innerText !== 'LIVE') return;
+
+            const rect = screenContainer.getBoundingClientRect();
+            // Calculate relative position (0 to 1)
+            const relX = (e.clientX - rect.left) / rect.width;
+            const relY = (e.clientY - rect.top) / rect.height;
+
+            try {
+                // Add click event to Firestore collection watched by contro.py
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clicks'), {
+                    relX: relX,
+                    relY: relY,
+                    timestamp: serverTimestamp(),
+                    processed: false
+                });
+                
+                // Visual ripple feedback
+                const ripple = document.createElement('div');
+                ripple.className = 'absolute w-6 h-6 border-2 border-white/50 rounded-full animate-ping pointer-events-none';
+                ripple.style.left = `calc(${(relX * 100)}% - 12px)`;
+                ripple.style.top = `calc(${(relY * 100)}% - 12px)`;
+                screenContainer.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+
+            } catch (err) {
+                console.error("Click delivery failed:", err);
             }
         });
 
-        // 2. Listen to Firestore
-        function startListening() {
-            // Updated Path to match your project ID structure
+        // 3. Sync Stream and Cursor
+        function startControl() {
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen');
 
-            onSnapshot(docRef, (docSnap) => {
-                loadingSpinner.classList.add('hidden');
-                
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
+            onSnapshot(docRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    
+                    // Update main image frame
                     if (data.frame) {
                         streamImg.src = data.frame;
                         streamImg.classList.remove('hidden');
-                        emptyState.classList.add('hidden');
-                        updateStatus('Live');
+                        loader.classList.add('hidden');
                     }
-                } else {
-                    streamImg.classList.add('hidden');
-                    emptyState.classList.remove('hidden');
-                    updateStatus('Waiting');
+                    
+                    // Update Remote Cursor overlay
+                    if (data.cursorX !== undefined) {
+                        remoteCursor.style.left = (data.cursorX * 100) + '%';
+                        remoteCursor.style.top = (data.cursorY * 100) + '%';
+                        remoteCursor.classList.remove('hidden');
+                    }
+
+                    statusDot.className = 'w-2 h-2 rounded-full bg-green-500 live-indicator';
+                    statusText.innerText = 'LIVE';
                 }
             }, (error) => {
-                console.error("Firestore Listen Error:", error);
-                updateStatus('Error');
-                loadingSpinner.classList.add('hidden');
-                emptyState.classList.remove('hidden');
-                authStatus.innerText = "Firestore Error: Check Rules";
+                console.error("Stream sync error:", error);
+                statusText.innerText = 'Sync Error';
             });
         }
     </script>
