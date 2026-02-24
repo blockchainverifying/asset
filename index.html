@@ -18,7 +18,7 @@
 <body class="p-4 md:p-10">
 
     <div class="max-w-6xl mx-auto">
-        <!-- Header Section -->
+        <!-- Header -->
         <div class="flex flex-col md:flex-row justify-between items-center mb-10 gap-5 glass p-6 rounded-[2.5rem]">
             <div class="flex items-center gap-5">
                 <div class="h-14 w-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl">
@@ -33,32 +33,29 @@
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <p id="latency" class="text-[10px] font-mono text-gray-500">DELAY: 0ms</p>
+                <p id="latency" class="text-[10px] font-mono text-gray-500">DELAY: — ms</p>
                 <button id="refresh-btn" class="bg-white text-black px-8 py-3 rounded-2xl font-black text-xs hover:bg-gray-200 transition-all active:scale-95 shadow-xl uppercase">Manual Refresh</button>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-10">
-            <!-- Screen Area (Yahan Stream Dikhegi) -->
+            <!-- Screen -->
             <div class="lg:col-span-3 space-y-6">
-                <div id="screen-container" class="screen-view glass rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 aspect-video group">
+                <div id="screen-container" class="screen-view glass rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 aspect-video group relative">
                     <div id="loading">
                         <div class="text-center">
                             <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                             <p class="text-xs font-bold text-gray-600 uppercase tracking-widest">Awaiting Live Signal...</p>
                         </div>
                     </div>
-                    <!-- Realtime Image Stream -->
                     <img id="display" src="" class="w-full h-full object-contain hidden" draggable="false">
-                    
-                    <!-- Overlay info -->
                     <div class="absolute bottom-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 px-4 py-2 rounded-full text-[10px] font-bold text-white uppercase tracking-widest pointer-events-none">
                         Click anywhere to control PC
                     </div>
                 </div>
             </div>
 
-            <!-- Side Controls -->
+            <!-- Controls -->
             <div class="space-y-6">
                 <div class="glass p-8 rounded-[2.5rem]">
                     <h2 class="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-6">Run Command</h2>
@@ -71,9 +68,9 @@
                     <textarea id="type-in" placeholder="Write text to send..." class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm mb-4 focus:border-orange-500 outline-none resize-none font-medium" rows="2"></textarea>
                     <button id="type-btn" class="w-full py-4 bg-white text-black rounded-2xl font-black text-xs hover:bg-gray-200">SEND KEYSTROKES</button>
                 </div>
-                
+
                 <div class="p-4 text-center">
-                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">Resolution: 1920x1080 (Mapped)</p>
+                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">Resolution: 1920×1080 (mapped)</p>
                 </div>
             </div>
         </div>
@@ -106,37 +103,57 @@
         const loading = document.getElementById('loading');
         const latencyEl = document.getElementById('latency');
 
-        function setStatus(msg, color) {
+        function setStatus(msg, color = 'bg-gray-500') {
             statusText.innerText = msg;
             statusDot.className = `h-2 w-2 rounded-full ${color}`;
         }
 
-        // 1. Auth Login (Realtime ke liye zaroori hai)
+        setStatus("Initializing...", "bg-yellow-500");
+
+        // ─── Auth ────────────────────────────────────────
         signInAnonymously(auth)
-            .then(() => setStatus("Streaming Ready", "bg-green-500 animate-pulse"))
+            .then(() => {
+                console.log("✓ Anonymous auth successful");
+                setStatus("Connected", "bg-green-500 animate-pulse");
+            })
             .catch(err => {
-                console.error(err);
+                console.error("Auth failed:", err);
                 setStatus("Auth Error", "bg-red-500");
             });
 
-        // 2. Continuous Stream Watcher
-        // Jab bhi Python script naya screenshot upload karegi, yeh turant update ho jayega
+        // ─── Display Stream Listener ─────────────────────
         const displayDoc = doc(db, 'artifacts', appId, 'public', 'data', 'display', 'display');
+
         onSnapshot(displayDoc, (snap) => {
+            console.log("Display snapshot received:", snap.exists() ? "yes" : "no", snap.data?.()?.timestamp);
+            
             if (snap.exists()) {
-                const startTime = Date.now();
-                display.src = snap.data().base64;
+                const data = snap.data();
+                const start = Date.now();
+                
+                display.src = data.base64;
                 
                 display.onload = () => {
+                    console.log("Image loaded successfully");
                     display.classList.remove('hidden');
                     loading.classList.add('hidden');
-                    const delay = Date.now() - startTime;
-                    latencyEl.innerText = `SYNC: ${delay}ms`;
+                    const delay = Date.now() - start;
+                    latencyEl.innerText = `DELAY: ${delay}ms`;
                 };
+
+                display.onerror = () => {
+                    console.error("Failed to load image from base64");
+                    setStatus("Image Load Error", "bg-red-500");
+                };
+            } else {
+                console.log("Display document does not exist yet");
             }
+        }, (err) => {
+            console.error("Display listener error:", err);
+            setStatus("Stream Error", "bg-red-500");
         });
 
-        // 3. Command Pusher (Click/Type/Cmd)
+        // ─── Command Sender ──────────────────────────────
         async function pushCommand(type, data) {
             try {
                 const col = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
@@ -146,42 +163,49 @@
                     executed: false, 
                     timestamp: serverTimestamp() 
                 });
-            } catch (e) { 
-                console.error("Push failed", e);
+                console.log(`Command sent: ${type}`);
+            } catch (e) {
+                console.error("Failed to send command:", e);
             }
         }
 
-        // Click Handling on Stream Area
+        // ─── Click Handler ───────────────────────────────
         document.getElementById('screen-container').onclick = (e) => {
             const rect = e.currentTarget.getBoundingClientRect();
-            // Scaling logic: Browser pixels se PC resolution (1920x1080) mein convert karna
             const x = Math.round(((e.clientX - rect.left) / rect.width) * 1920);
             const y = Math.round(((e.clientY - rect.top) / rect.height) * 1080);
-            
-            // Visual feedback (Ripple)
+
+            // Ripple effect
             const rip = document.createElement('div');
             rip.className = 'click-ripple';
-            rip.style.left = (e.clientX - rect.left) + 'px';
-            rip.style.top = (e.clientY - rect.top) + 'px';
+            rip.style.left = `${e.clientX - rect.left}px`;
+            rip.style.top = `${e.clientY - rect.top}px`;
             e.currentTarget.appendChild(rip);
             setTimeout(() => rip.remove(), 600);
 
-            // Send Click to PC via Firestore
             pushCommand('click', { x, y });
         };
 
-        // UI Event Listeners
+        // ─── UI Buttons ──────────────────────────────────
         document.getElementById('cmd-btn').onclick = () => {
-            const el = document.getElementById('cmd-in');
-            if(el.value) { pushCommand('cmd', el.value); el.value = ''; }
+            const val = document.getElementById('cmd-in').value.trim();
+            if (val) {
+                pushCommand('cmd', val);
+                document.getElementById('cmd-in').value = '';
+            }
         };
 
         document.getElementById('type-btn').onclick = () => {
-            const el = document.getElementById('type-in');
-            if(el.value) { pushCommand('type', el.value); el.value = ''; }
+            const val = document.getElementById('type-in').value.trim();
+            if (val) {
+                pushCommand('type', val);
+                document.getElementById('type-in').value = '';
+            }
         };
 
-        document.getElementById('refresh-btn').onclick = () => pushCommand('refresh', {});
+        document.getElementById('refresh-btn').onclick = () => {
+            pushCommand('refresh', {});
+        };
 
     </script>
 </body>
