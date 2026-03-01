@@ -94,86 +94,94 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'sainfoxiya-com-a7733';
 
         if (configRaw) {
-            const config = JSON.parse(configRaw);
-            const app = initializeApp(config);
-            const db = getFirestore(app);
-            const auth = getAuth(app);
+            try {
+                const config = JSON.parse(configRaw);
+                const app = initializeApp(config);
+                const db = getFirestore(app);
+                const auth = getAuth(app);
 
-            signInAnonymously(auth).then(() => {
-                document.getElementById('connection-dot').classList.replace('bg-red-500', 'bg-green-500');
-                
-                // 1. Live Screen Stream
-                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), s => {
-                    if(!s.exists()) return;
-                    const d = s.data();
-                    const screenImg = document.getElementById('live-screen');
-                    if(d.frame) screenImg.src = d.frame;
+                signInAnonymously(auth).then(() => {
+                    document.getElementById('connection-dot').classList.replace('bg-red-500', 'bg-green-500');
                     
-                    const c = document.getElementById('remote-cursor');
-                    c.style.left = (d.cursorX * 100) + '%';
-                    c.style.top = (d.cursorY * 100) + '%';
-                });
-
-                // 2. Camera & Motion detection
-                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_camera'), s => {
-                    if(!s.exists()) return;
-                    const d = s.data();
-                    const img = document.getElementById('live-camera');
-                    const stat = document.getElementById('cam-status');
-                    const box = document.getElementById('cam-box');
-                    const dot = document.getElementById('cam-dot');
-                    const label = document.getElementById('cam-label');
-                    const placeholder = document.getElementById('cam-placeholder');
-                    
-                    if(d.frame && !d.motion) {
-                        img.src = d.frame;
-                        img.classList.remove('hidden');
-                        placeholder.classList.add('hidden');
-                        stat.innerText = "LIVE";
-                        dot.className = "w-1.5 h-1.5 bg-green-500 rounded-full";
-                        label.innerText = "Live";
-                        box.classList.remove('motion-alert');
-                    } else if (d.motion) {
-                        img.classList.add('hidden');
-                        placeholder.classList.remove('hidden');
-                        stat.innerText = "OFF (MOTION DETECTED)";
-                        dot.className = "w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse";
-                        label.innerText = "Motion Alert";
-                        box.classList.add('motion-alert');
-                    } else {
-                        img.classList.add('hidden');
-                        placeholder.classList.remove('hidden');
-                        stat.innerText = d.status || "STANDBY";
-                        dot.className = "w-1.5 h-1.5 bg-slate-600 rounded-full";
-                        label.innerText = "Off";
-                        box.classList.remove('motion-alert');
-                    }
-                });
-
-                // 3. Clipboard Feed
-                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(15));
-                onSnapshot(q, s => {
-                    const l = document.getElementById('clipboard-list');
-                    l.innerHTML = '';
-                    if(s.empty) l.innerHTML = '<div class="text-slate-600 italic">No clipboard history...</div>';
-                    s.forEach(doc => {
-                        const item = document.createElement('div');
-                        item.className = "bg-slate-900 p-2 rounded border-l-2 border-blue-600 break-all text-blue-100/80 mb-2";
-                        item.innerText = doc.data().text;
-                        l.appendChild(item);
+                    // 1. Live Screen Stream
+                    onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), s => {
+                        if(!s.exists()) return;
+                        const d = s.data();
+                        const screenImg = document.getElementById('live-screen');
+                        if(d.frame) screenImg.src = d.frame;
+                        
+                        const c = document.getElementById('remote-cursor');
+                        c.style.left = (d.cursorX * 100) + '%';
+                        c.style.top = (d.cursorY * 100) + '%';
                     });
-                });
 
-                // Global function to push actions to Firebase
-                window.sendCommand = (type, extra = {}) => {
-                    addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
-                        type, ...extra, timestamp: serverTimestamp()
+                    // 2. Camera & Motion detection
+                    onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_camera'), s => {
+                        if(!s.exists()) return;
+                        const d = s.data();
+                        const img = document.getElementById('live-camera');
+                        const stat = document.getElementById('cam-status');
+                        const box = document.getElementById('cam-box');
+                        const dot = document.getElementById('cam-dot');
+                        const label = document.getElementById('cam-label');
+                        const placeholder = document.getElementById('cam-placeholder');
+                        
+                        if(d.frame && !d.motion) {
+                            img.src = d.frame;
+                            img.classList.remove('hidden');
+                            placeholder.classList.add('hidden');
+                            stat.innerText = "LIVE";
+                            dot.className = "w-1.5 h-1.5 bg-green-500 rounded-full";
+                            label.innerText = "Live";
+                            box.classList.remove('motion-alert');
+                        } else if (d.motion) {
+                            img.classList.add('hidden');
+                            placeholder.classList.remove('hidden');
+                            stat.innerText = "OFF (MOTION DETECTED)";
+                            dot.className = "w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse";
+                            label.innerText = "Motion Alert";
+                            box.classList.add('motion-alert');
+                        } else {
+                            img.classList.add('hidden');
+                            placeholder.classList.remove('hidden');
+                            stat.innerText = d.status || "STANDBY";
+                            dot.className = "w-1.5 h-1.5 bg-slate-600 rounded-full";
+                            label.innerText = "Off";
+                            box.classList.remove('motion-alert');
+                        }
                     });
-                };
-            }).catch(e => console.error("Auth Failure:", e));
+
+                    // 3. Clipboard Feed
+                    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(15));
+                    onSnapshot(q, s => {
+                        const l = document.getElementById('clipboard-list');
+                        l.innerHTML = '';
+                        if(s.empty) l.innerHTML = '<div class="text-slate-600 italic">No clipboard history...</div>';
+                        s.forEach(doc => {
+                            const item = document.createElement('div');
+                            item.className = "bg-slate-900 p-2 rounded border-l-2 border-blue-600 break-all text-blue-100/80 mb-2";
+                            item.innerText = doc.data().text;
+                            l.appendChild(item);
+                        });
+                    });
+
+                    // Global function to push actions to Firebase
+                    window.sendCommand = (type, extra = {}) => {
+                        addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
+                            type, ...extra, timestamp: serverTimestamp()
+                        });
+                    };
+                }).catch(e => {
+                    console.error("Auth Failure:", e);
+                    document.getElementById('live-screen').alt = "Authentication Failed. Check console.";
+                });
+            } catch (err) {
+                console.error("Config Parsing Error:", err);
+            }
         } else {
-            document.getElementById('live-screen').alt = "Local Preview: Deployment Required for Live Socket Connection.";
-            console.warn("GhostNode: No Firebase configuration found. Please deploy to see real-time interaction.");
+            // This part only shows in development preview if config isn't injected.
+            document.getElementById('live-screen').alt = "Local Preview: Connection standby.";
+            console.info("GhostNode: Standing by for environment configuration.");
         }
 
         // Action Handlers
